@@ -12,7 +12,8 @@ from transformers import (
     AutoTokenizer,
     TrainingArguments,
     Trainer,
-    EvalPrediction
+    EvalPrediction,
+    EarlyStoppingCallback
 )
 from datasets import Dataset
 from sklearn.metrics import f1_score, roc_auc_score, accuracy_score
@@ -137,7 +138,8 @@ def main(args):
         train_dataset=encoded_tds,
         eval_dataset=encoded_vds,
         tokenizer=tokenizer,
-        compute_metrics=compute_metrics
+        compute_metrics=compute_metrics,
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
     )
     trainer.train()
 
