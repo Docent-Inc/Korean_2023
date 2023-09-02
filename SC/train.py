@@ -2,22 +2,12 @@ import os
 import sys
 from typing import List
 import warnings
-warnings.filterwarnings("ignore", category=UserWarning)
-
 import fire
 import torch
 import transformers
 from datasets import load_dataset
 from tokenizers.processors import TemplateProcessing
-
 from src.utils import Prompter, get_logger
-
-"""
-Unused imports:
-import torch.nn as nn
-import bitsandbytes as bnb
-"""
-
 from peft import (
     LoraConfig,
     get_peft_model,
@@ -25,20 +15,21 @@ from peft import (
     prepare_model_for_int8_training,
     set_peft_model_state_dict,
 )
-
-from transformers import GPTNeoXForCausalLM, GPTNeoXTokenizerFast
-
-
+from transformers import GPTNeoXForCausalLM, GPTNeoXTokenizerFast, EarlyStoppingCallback
+warnings.filterwarnings("ignore", category=UserWarning)
+"""
+KULLM train.py
+"""
 
 def train(
     # model/data params
-    base_model: str = "nlpai-lab/kullm-polyglot-5.8b-v2",  # the only required argument
-    data_path: str = "SC/resource/data/nikluge-sc-2023-train.jsonl",
-    dev_path: str = "SC/resource/data/nikluge-sc-2023-dev.jsonl",
-    output_dir: str = "SC/outputs",
+    base_model: str = "nlpai-lab/kullm-polyglot-5.8b-v2", # base mdoel 경로
+    data_path: str = "SC/resource/data/nikluge-sc-2023-train.jsonl", # train data 경로
+    dev_path: str = "SC/resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
+    output_dir: str = "SC/outputs", # output 경로
     # training hyperparams
-    batch_size: int = 64,
-    micro_batch_size: int = 4,
+    batch_size: int = 128,
+    micro_batch_size: int = 8,
     num_epochs: int = 3,
     learning_rate: float = 3e-4,
     cutoff_len: int = 2048,
@@ -90,8 +81,7 @@ def train(
         )
     assert base_model, "Please specify a --base_model, e.g. --base_model='huggyllama/llama-7b'"
     gradient_accumulation_steps = batch_size // micro_batch_size
-    data = load_dataset("json", data_files=data_path)
-    dev_data = load_dataset("json", data_files=dev_path)
+
     prompter = Prompter(prompt_template_name)
 
     device_map = "auto"
@@ -118,7 +108,9 @@ def train(
         device_map=device_map,
     )
 
+    logger.info(f'[+] Load Tokenizer"')
     tokenizer = GPTNeoXTokenizerFast.from_pretrained(base_model)
+    # special_token 추가
     special_tokens_dict = {
         'bos_token': '</s>',
         'eos_token': '</s>',
@@ -142,8 +134,6 @@ def train(
     # tokenizer.pad_token_id = 0  # unk. we want this to be different from the eos token
     tokenizer.padding_side = "left"  # Allow batched inference
     def tokenize(prompt, add_eos_token=True):
-        # there's probably a way to do this with the tokenizer settings
-        # but again, gotta move fast
         result = tokenizer(
             prompt,
             truncation=True,
@@ -160,7 +150,6 @@ def train(
             result["attention_mask"].append(1)
 
         result["labels"] = result["input_ids"].copy()
-
         return result
 
     def generate_and_tokenize_prompt(data_point):
@@ -198,8 +187,6 @@ def train(
     )
     model = get_peft_model(model, config)
 
-
-
     with open(dev_path, 'r') as f:
         lines = f.readlines()
         val_set_size = len(lines)
@@ -222,6 +209,9 @@ def train(
 
     model.print_trainable_parameters()  # Be more transparent about the % of trainable params.
 
+    logger.info(f'[+] Load Dataset')
+    data = load_dataset("json", data_files=data_path)
+    dev_data = load_dataset("json", data_files=dev_path)
     train_data = data["train"].shuffle().map(generate_and_tokenize_prompt)
     val_data = dev_data["train"].shuffle().map(generate_and_tokenize_prompt)
 
@@ -258,6 +248,7 @@ def train(
         data_collator=transformers.DataCollatorForSeq2Seq(
             tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
         ),
+        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
     )
     model.config.use_cache = False
 
