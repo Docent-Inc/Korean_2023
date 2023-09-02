@@ -1,3 +1,4 @@
+# %%
 import argparse
 import os
 
@@ -9,11 +10,12 @@ from transformers import GPTNeoXForCausalLM, GPTNeoXTokenizerFast, AutoTokenizer
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--base_model", type=str, default="EleutherAI/polyglot-ko-12.8b")
-parser.add_argument("--lora_model_path", type=str, default="outputs/check-800")
-parser.add_argument("--output_dir", type=str, default="outputs/test")
-args = parser.parse_args()
+parser.add_argument("--lora_model_path", type=str, default="ckpt/polyglot-13b-kullm_v3-3e-5/sft_lora_model")
+parser.add_argument("--output_dir", type=str, default="ckpt/polyglot-13b-kullm_v3-3e-5")
+args = parser.parse_args([])
 
 
+# %%
 BASE_MODEL = args.base_model
 assert (
     BASE_MODEL
@@ -27,6 +29,7 @@ base_model = GPTNeoXForCausalLM.from_pretrained(
     torch_dtype=torch.float16,
     device_map={"": "cpu"},
 )
+# %%
 
 ## infer the model size from the checkpoint
 embedding_size = base_model.get_input_embeddings().weight.size(1)
@@ -45,10 +48,12 @@ if model_vocab_size != len(tokenizer):
     base_model.resize_token_embeddings(len(tokenizer))
     print(f"Extended vocabulary size to {len(tokenizer)}")
 
+# %%
 
 first_weight = base_model.gpt_neox.layers[0].attention.query_key_value.weight  # TODO: polyglot-ko-5.8b
 first_weight_old = first_weight.clone()
 
+# %%
 print(f"Loading LoRA weights")
 lora_model = PeftModel.from_pretrained(
     base_model,
@@ -60,6 +65,7 @@ lora_model = PeftModel.from_pretrained(
 lora_weight = lora_model.base_model.gpt_neox.layers[0].attention.query_key_value.weight
 
 assert torch.allclose(first_weight_old, first_weight)
+# %%
 # merge weights - new merging method from peft
 lora_model = lora_model.merge_and_unload()
 
@@ -75,3 +81,4 @@ deloreanized_sd = {k.replace("base_model.gpt_neox.", ""): v for k, v in lora_mod
 # LlamaForCausalLM.save_pretrained(os.path.join(args.lora_weights, "hf_ckpt"), state_dict=deloreanized_sd, max_shard_size="400MB")
 GPTNeoXForCausalLM.save_pretrained(base_model, save_directory=args.output_dir, state_dict=deloreanized_sd)
 
+# %%
