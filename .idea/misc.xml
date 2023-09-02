@@ -1,4 +1,4 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
-  <component name="ProjectRootManager" version="2" project-jdk-name="Python 3.10 (ML_CIFAR10)" project-jdk-type="Python SDK" />
+  <component name="ProjectRootManager" version="2" project-jdk-name="Remote Python 3.10.12 (sftp://dmz@192.9.202.195:22/home/dmz/.virtualenvs/Korean_2023/bin/python)" project-jdk-type="Python SDK" />
 </project>
