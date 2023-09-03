@@ -7,7 +7,7 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 from src.utils import Prompter, get_logger
 
 parser = argparse.ArgumentParser(prog="inference", description="Inference with Kullm")
-parser.add_argument("--model-ckpt-path", type=str, help="Kullm model path")
+parser.add_argument("--model-ckpt-path", type=str, default="nlpai-lab/kullm-polyglot-5.8b-v2",help="Kullm model path")
 
 def inference(args):
     logger = get_logger("inference")
@@ -41,8 +41,23 @@ def inference(args):
 
         return result
 
+    current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    result_file_name = f"inference_results_{current_time}.jsonl"
 
+    with open(result_file_name, "w") as f:
+        for data_point in test_data:
+            instruction = "문맥에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 만들어주세요."
+            input_text = f"{data_point['input']['sentence1']} {tokenizer.sep_token} {data_point['input']['sentence3']}"
 
+            # 추론을 수행합니다.
+            result = infer(instruction=instruction, input_text=input_text에)
+
+            output_data_point = {
+                "id": data_point["id"],
+                "input": data_point["input"],
+                "output": result
+            }
+            f.write(json.dumps(output_data_point) + "\n")
 
 if __name__ == "__main__":
     args = parser.parse_args()

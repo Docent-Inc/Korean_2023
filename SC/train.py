@@ -24,9 +24,9 @@ KULLM train.py
 def train(
     # model/data params
     base_model: str = "nlpai-lab/kullm-polyglot-5.8b-v2", # base mdoel 경로
-    data_path: str = "SC/resource/data/nikluge-sc-2023-train.jsonl", # train data 경로
-    dev_path: str = "SC/resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
-    output_dir: str = "SC/outputs", # output 경로
+    data_path: str = "resource/data/nikluge-sc-2023-train.jsonl", # train data 경로
+    dev_path: str = "resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
+    output_dir: str = "outputs/adapter", # output 경로
     # training hyperparams
     batch_size: int = 128,
     micro_batch_size: int = 8,
@@ -110,27 +110,6 @@ def train(
 
     logger.info(f'[+] Load Tokenizer"')
     tokenizer = GPTNeoXTokenizerFast.from_pretrained(base_model)
-    # special_token 추가
-    special_tokens_dict = {
-        'bos_token': '</s>',
-        'eos_token': '</s>',
-        'unk_token': '<unk>',
-        'pad_token': '<pad>',
-        'mask_token': '<mask>',
-    }
-    tokenizer.add_special_tokens(special_tokens_dict)
-
-    if not tokenizer.cls_token:
-        tokenizer.cls_token = tokenizer.bos_token
-    if not tokenizer.sep_token:
-        tokenizer.sep_token = tokenizer.eos_token
-
-    tokenizer._tokenizer.post_processor = TemplateProcessing(
-        single=f"{tokenizer.cls_token} $0 {tokenizer.sep_token}",
-        pair=f"{tokenizer.cls_token} $A {tokenizer.sep_token} $B:1 {tokenizer.sep_token}:1",
-        special_tokens=[(tokenizer.cls_token, tokenizer.cls_token_id), (tokenizer.sep_token, tokenizer.sep_token_id)],
-    )
-
     # tokenizer.pad_token_id = 0  # unk. we want this to be different from the eos token
     tokenizer.padding_side = "left"  # Allow batched inference
     def tokenize(prompt, add_eos_token=True):
@@ -153,7 +132,7 @@ def train(
         return result
 
     def generate_and_tokenize_prompt(data_point):
-        instruction = "두 문장을 연결하여 자연스러운 이야기를 만드세요"
+        instruction = "문맥에 맞는 자연스러운 한 문장이 되도록 두 문장 들어갈 한 문장을 만들어주세요."
         combined_input = f"{data_point['input']['sentence1']} {tokenizer.sep_token} {data_point['input']['sentence3']}"
 
         full_prompt = prompter.generate_prompt(
