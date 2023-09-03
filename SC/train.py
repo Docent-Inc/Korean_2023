@@ -132,8 +132,11 @@ def train(
         return result
 
     def generate_and_tokenize_prompt(data_point):
+        special_token_id = 3  # <|sep|> 토큰
+        special_token = tokenizer.decode([special_token_id])
+
         instruction = "문맥에 맞는 자연스러운 한 문장이 되도록 두 문장 들어갈 한 문장을 만들어주세요."
-        combined_input = f"{data_point['input']['sentence1']} {tokenizer.sep_token} {data_point['input']['sentence3']}"
+        combined_input = f"{data_point['input']['sentence1']} {special_token} {data_point['input']['sentence3']}"
 
         full_prompt = prompter.generate_prompt(
             instruction,
