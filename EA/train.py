@@ -15,7 +15,7 @@ from transformers import (
     EvalPrediction,
     EarlyStoppingCallback
 )
-from datasets import Dataset
+from datasets import Dataset, concatenate_datasets
 from sklearn.metrics import f1_score, roc_auc_score, accuracy_score
 
 
@@ -33,6 +33,7 @@ g.add_argument("--epochs", type=int, default=10, help="the numnber of training e
 g.add_argument("--learning-rate", type=float, default=2e-4, help="max learning rate")
 g.add_argument("--weight-decay", type=float, default=0.01, help="weight decay")
 g.add_argument("--seed", type=int, default=42, help="random seed")
+g.add_argument("--kfold", type=int, default=5, help="stratified K-fold")
 
 
 def main(args):
@@ -59,10 +60,30 @@ def main(args):
 
     logger.info(f'[+] Load Tokenizer"')
     tokenizer = AutoTokenizer.from_pretrained(args.tokenizer)
-
+    
+    
+    
+    # Load the initial datasets for Stratified K-fold
     logger.info(f'[+] Load Dataset')
-    train_ds = Dataset.from_json("resource/data/nikluge-ea-2023-train.jsonl")
-    valid_ds = Dataset.from_json("resource/data/nikluge-ea-2023-dev.jsonl")
+
+    # Total number of folds
+    num_folds = 9
+    
+    # If args.kfold is specified
+    if 1 <= args.kfold <= num_folds:
+        # Determine the validation fold based on args.kfold
+        valid_file = f"resource/data/splits/td_fold_{args.kfold}.jsonl"
+        valid_ds = Dataset.from_json(valid_file)
+        
+        # Load the other folds for training
+        train_files = [f"resource/data/splits/td_fold_{i}.jsonl" for i in range(1, num_folds + 1) if i != args.kfold]
+        train_datasets = [Dataset.from_json(file) for file in train_files]
+        train_ds = concatenate_datasets(train_datasets)
+    
+    else:
+        print("error: invalid K-fold N")
+        exit()    
+    
 
     labels = list(train_ds["output"][0].keys())
     id2label = {idx:label for idx, label in enumerate(labels)}
