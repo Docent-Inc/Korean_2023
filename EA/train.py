@@ -64,11 +64,11 @@ def main(args):
     
     
     # Load the initial datasets for Stratified K-fold
+    logger.info(f'[+] Load Dataset')
 
     # Total number of folds
     num_folds = 9
     
-
     # If args.kfold is specified
     if 1 <= args.kfold <= num_folds:
         # Determine the validation fold based on args.kfold
@@ -84,10 +84,6 @@ def main(args):
         print("error: invalid K-fold N")
         exit()    
     
-
-    logger.info(f'[+] Load Dataset')
-    train_ds = Dataset.from_json("resource/data/nikluge-ea-2023-train.jsonl")
-    valid_ds = Dataset.from_json("resource/data/nikluge-ea-2023-dev.jsonl")
 
     labels = list(train_ds["output"][0].keys())
     id2label = {idx:label for idx, label in enumerate(labels)}
