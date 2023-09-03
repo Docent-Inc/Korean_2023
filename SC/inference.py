@@ -59,8 +59,6 @@ def inference(args):
             }
             f.write(json.dumps(output_data_point) + "\n")
 
-
-
 if __name__ == "__main__":
     args = parser.parse_args()
     inference(args)
