@@ -64,11 +64,7 @@ pip install -r requirements.txt
 ## How to Run
 ### Train
 ```
-python -m run train \
-    --output-dir outputs/ \
-    --seed 42 --epoch 10 \
-    --learning-rate 2e-5 --weight-decay 0.01 \
-    --batch-size 64 --valid-batch-size 64
+python train.py --output-dir outputs --seed 42 --epoch 10 --learning-rate 2e-5 --weight-decay 0.01 --batch-size 64 --valid-batch-size 64
 ```
 
 ### Inference
