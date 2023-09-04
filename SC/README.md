@@ -16,9 +16,9 @@
     ```
 3. **라이브러리 설치**: 이후 필요한 라이브러리를 설치해줍니다.
 
-    '''bash
+    ```bash
     pip install -r requirements.text
-    '''
+    ```
 
 ## 모델 훈련
 
