@@ -28,11 +28,11 @@ def train(
     dev_path: str = "resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
     output_dir: str = "/home/dmz/project/Korean_2023/SC/outputs/adapter", # output 경로
     # training hyperparams
-    batch_size: int = 256,
-    micro_batch_size: int = 16,
+    batch_size: int = 64,
+    micro_batch_size: int = 2,
     num_epochs: int = 3,
     learning_rate: float = 3e-4,
-    cutoff_len: int = 2048,
+    cutoff_len: int = 512,
     # lora hyperparams
     lora_r: int = 32,
     lora_alpha: int = 64,
@@ -135,7 +135,7 @@ def train(
         special_token_id = 3  # <|sep|> 토큰
         special_token = tokenizer.decode([special_token_id])
 
-        instruction = "문맥에 맞는 자연스러운 한 문장이 되도록 두 문장 들어갈 한 문장을 만들어주세요."
+        instruction = "문맥에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 만들어주세요."
         combined_input = f"{data_point['input']['sentence1']} {special_token} {data_point['input']['sentence3']}"
 
         full_prompt = prompter.generate_prompt(
