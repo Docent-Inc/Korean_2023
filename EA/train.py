@@ -160,6 +160,7 @@ def main(args):
         eval_dataset=encoded_vds,
         tokenizer=tokenizer,
         compute_metrics=compute_metrics,
+        save_total_limit=1,
         callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
     )
     trainer.train()

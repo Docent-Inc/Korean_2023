@@ -26,10 +26,10 @@ def train(
     base_model: str = "nlpai-lab/kullm-polyglot-5.8b-v2", # base mdoel 경로
     data_path: str = "resource/data/nikluge-sc-2023-train.jsonl", # train data 경로
     dev_path: str = "resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
-    output_dir: str = "outputs/adapter", # output 경로
+    output_dir: str = "/home/dmz/project/Korean_2023/SC/outputs/adapter", # output 경로
     # training hyperparams
-    batch_size: int = 128,
-    micro_batch_size: int = 8,
+    batch_size: int = 256,
+    micro_batch_size: int = 16,
     num_epochs: int = 3,
     learning_rate: float = 3e-4,
     cutoff_len: int = 2048,
@@ -104,7 +104,7 @@ def train(
     model = GPTNeoXForCausalLM.from_pretrained(
         base_model,
         load_in_8bit=True,
-        torch_dtype=torch.float16,
+        torch_dtype=torch.float32,
         device_map=device_map,
     )
 

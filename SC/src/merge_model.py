@@ -9,8 +9,8 @@ from transformers import GPTNeoXForCausalLM, GPTNeoXTokenizerFast, AutoTokenizer
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--base_model", type=str, default="nlpai-lab/kullm-polyglot-5.8b-v2")
-parser.add_argument("--lora_model_path", type=str, default="outputs/adapter/checkpoint-200")
-parser.add_argument("--output_dir", type=str, default="outputs/model")
+parser.add_argument("--lora_model_path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/adapter/checkpoint-200")
+parser.add_argument("--output_dir", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/model")
 args = parser.parse_args()
 
 
@@ -46,7 +46,7 @@ if model_vocab_size != len(tokenizer):
     print(f"Extended vocabulary size to {len(tokenizer)}")
 
 
-first_weight = base_model.gpt_neox.layers[0].attention.query_key_value.weight  # TODO: polyglot-ko-5.8b
+first_weight = base_model.gpt_neox.layers[0].attention.query_key_value.weight
 first_weight_old = first_weight.clone()
 
 print(f"Loading LoRA weights")
