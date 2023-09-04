@@ -57,7 +57,7 @@ def inference(args):
     all_output_data_points = []  # 결과를 저장할 리스트
 
     for i, data_point in enumerate(tqdm(test_data, desc="Processing")):  # tqdm을 사용하여 진행 상태를 표시
-        instruction = "문맥에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 만들어주세요."
+        instruction = "문맥에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 접속사를 신경써서 만들어주세요."
         input_text = f"{data_point['input']['sentence1']} {special_token} {data_point['input']['sentence3']}"
 
         result = infer(instruction=instruction, input_text=input_text)
