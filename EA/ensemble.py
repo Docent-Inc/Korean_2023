@@ -26,18 +26,11 @@ for file_name in file_names:
                 if value == "True":
                     ensemble_counts[id_][label] += 1
 
-# Determine the final label using hard voting and update the original data
+# Determine the final labels using hard voting and update the original data
+threshold = len(file_names) // 2
 for id_, counts in ensemble_counts.items():
-    # Get the label(s) with the maximum count
-    max_count = max(counts.values())
-    max_labels = [label for label, count in counts.items() if count == max_count]
-    
-    # If there's a tie, you can decide how to handle it. Here, we just take the first label.
-    chosen_label = max_labels[0]
-    
-    # Update the original data's output with the chosen label
     for label in data_store[id_]['output']:
-        data_store[id_]['output'][label] = "True" if label == chosen_label else "False"
+        data_store[id_]['output'][label] = "True" if counts[label] > threshold else "False"
 
 # Save the updated data to a new JSONL file
 with open('outputs/ensembled_results.jsonl', 'w', encoding='utf-8') as f:
