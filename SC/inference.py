@@ -7,23 +7,31 @@ import datetime
 from src.utils import Prompter, get_logger
 import warnings
 from tqdm import tqdm
-
-# 경고 메시지를 무시
+import os
+import logging
+logging.getLogger("transformers").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore", category=UserWarning)
 
-
 parser = argparse.ArgumentParser(prog="inference", description="Inference with Kullm")
-parser.add_argument("--model-ckpt-path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/model",help="Kullm model path")
+parser.add_argument("--model-ckpt-path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/model_test_3",help="Kullm model path")
+
+# model_test_1 = 배치사이즈 128, 200 train, 56.2160680	
+# model_test_2 = 배치사이즈 8, 200 train, 53.8771794
+# model_test_3 = 배치사이즈 8, 4800 train, 
+# model_test_4 = 배치사이즈 8, 3 epoch,
+# mdoel_test_5 = model_test_4 1번 강화학습,
+
 
 def inference(args):
     logger = get_logger("inference")
 
     MODEL = args.model_ckpt_path
     logger.info(f'[+] Load Model from "{MODEL}"')
+    torch.cuda.empty_cache()
 
     model = AutoModelForCausalLM.from_pretrained(
         MODEL,
-        torch_dtype=torch.float32,
+        torch_dtype=torch.float16,
         low_cpu_mem_usage=True,
     ).to(device=f"cuda", non_blocking=True)
     model.eval()
@@ -32,22 +40,23 @@ def inference(args):
     prompter = Prompter("kullm")
 
     logger.info("[+] Load Dataset")
-    data_path = "resource/data/nikluge-sc-2023-test.jsonl"
+    # data_path = "resource/data/nikluge-sc-2023-test.jsonl"
+    RLHF_path = "resource/data/nikluge-sc-2023-dev.jsonl"
     test_data = load_dataset("json", data_files=data_path)
     test_data = test_data["train"]
-    
 
     logger.info("[+] Start Inference")
     
     def infer(instruction="", input_text=""):
         prompt = prompter.generate_prompt(instruction, input_text)
-        output = pipe(prompt, max_length=512, temperature=0.2, num_beams=5, eos_token_id=2)
+        output = pipe(prompt, max_length=512, temperature=0.2, num_beams=6, eos_token_id=2)
         s = output[0]["generated_text"]
         result = prompter.get_response(s)
 
         return result
 
-    current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    # current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
+    current_time = "v1"
     result_file_name = f"inference_results_{current_time}.jsonl"
     special_token_id = 3  # <|sep|> 토큰
     tokenizer = GPTNeoXTokenizerFast.from_pretrained(MODEL)
@@ -72,14 +81,14 @@ def inference(args):
 
         # 500개마다 파일에 저장
         if (i + 1) % batch_size == 0:
-            with open(f"{result_file_name}_{i // batch_size + 1}.jsonl", "w") as f:
+            with open(result_file_name, "a") as f:
                 for output_data_point in all_output_data_points:
                     f.write(json.dumps(output_data_point, ensure_ascii=False) + "\n")
             all_output_data_points = []  # 리스트 초기화
 
     # 남은 데이터 저장
     if all_output_data_points:
-        with open(f"{result_file_name}_{(i // batch_size) + 1}.jsonl", "w") as f:
+        with open(result_file_name, "a") as f:
             for output_data_point in all_output_data_points:
                 f.write(json.dumps(output_data_point, ensure_ascii=False) + "\n")
 

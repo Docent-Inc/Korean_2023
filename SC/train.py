@@ -28,7 +28,7 @@ def train(
     dev_path: str = "resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
     output_dir: str = "/home/dmz/project/Korean_2023/SC/outputs/adapter", # output 경로
     # training hyperparams
-    batch_size: int = 64,
+    batch_size: int = 8,
     micro_batch_size: int = 2,
     num_epochs: int = 3,
     learning_rate: float = 3e-4,
@@ -230,7 +230,7 @@ def train(
         data_collator=transformers.DataCollatorForSeq2Seq(
             tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
         ),
-        callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+        # callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
     )
     model.config.use_cache = False
 

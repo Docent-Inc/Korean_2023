@@ -9,8 +9,8 @@ from transformers import GPTNeoXForCausalLM, GPTNeoXTokenizerFast, AutoTokenizer
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--base_model", type=str, default="nlpai-lab/kullm-polyglot-5.8b-v2")
-parser.add_argument("--lora_model_path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/adapter/checkpoint-200")
-parser.add_argument("--output_dir", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/model")
+parser.add_argument("--lora_model_path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/adapter/checkpoint-4800")
+parser.add_argument("--output_dir", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/model_test_3")
 args = parser.parse_args()
 
 
