@@ -28,7 +28,7 @@ def train(
     dev_path: str = "resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
     output_dir: str = "/home/dmz/project/Korean_2023/SC/outputs/adapter", # output 경로
     # training hyperparams
-    batch_size: int = 8,
+    batch_size: int = 4,
     micro_batch_size: int = 2,
     num_epochs: int = 3,
     learning_rate: float = 3e-4,
@@ -135,7 +135,7 @@ def train(
         special_token_id = 3  # <|sep|> 토큰
         special_token = tokenizer.decode([special_token_id])
 
-        instruction = "문맥에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 접속사를 신경써서 만들어주세요."
+        instruction = "문맥과 문법적 정확성 및 논리적 일관성에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 접속사를 신경써서 만들어주세요."
         combined_input = f"{data_point['input']['sentence1']} {special_token} {data_point['input']['sentence3']}"
 
         full_prompt = prompter.generate_prompt(
@@ -201,7 +201,7 @@ def train(
         # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
         model.is_parallelizable = True
         model.model_parallel = True
-
+    
     trainer = transformers.Trainer(
         model=model,
         train_dataset=train_data,
@@ -209,7 +209,7 @@ def train(
         args=transformers.TrainingArguments(
             per_device_train_batch_size=micro_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
-            warmup_steps=2000,
+            warmup_steps=3000,
             num_train_epochs=num_epochs,
             learning_rate=learning_rate,
             fp16=True,
@@ -217,8 +217,8 @@ def train(
             optim="adamw_torch",
             evaluation_strategy="steps" if val_set_size > 0 else "no",
             save_strategy="steps",
-            eval_steps=5000 if val_set_size > 0 else None,
-            save_steps=5000,
+            eval_steps=10000 if val_set_size > 0 else None,
+            save_steps=10000,
             output_dir=output_dir,
             save_total_limit=3,
             load_best_model_at_end=True if val_set_size > 0 else False,
@@ -229,8 +229,7 @@ def train(
         ),
         data_collator=transformers.DataCollatorForSeq2Seq(
             tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
-        ),
-        # callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+        )
     )
     model.config.use_cache = False
 
