@@ -13,5 +13,6 @@
 - 추가 학습: 식별된 문제점을 개선하기 위해 해당 데이터셋을 추가로 학습시킵니다.
 - 반복적 학습: 위의 과정을 반복하면서 모델을 튜닝합니다.
 ### 학습 전략
-- LoRA ![image](https://github.com/Docent-Inc/Korean_2023/assets/89565530/bcaee0b4-29f1-413a-aa6d-ae299845630d) (Low-Rank Adaptation of Large Language Models): LoRA는 PEFT(Parameter Effecient Fine-Tuning)의 기법 중 하나입니다. Pre-trained model의 weight는 고정한 채로, 몇 개의 dense(fc) layer만 학습시켜 downstream task의 연산량을 줄일 수 있습니다.
+- LoRA (Low-Rank Adaptation of Large Language Models): LoRA는 PEFT(Parameter Effecient Fine-Tuning)의 기법 중 하나입니다. Pre-trained model의 weight는 고정한 채로, 몇 개의 dense(fc) layer만 학습시켜 downstream task의 연산량을 줄일 수 있습니다.
+- ![image](https://github.com/Docent-Inc/Korean_2023/assets/89565530/bcaee0b4-29f1-413a-aa6d-ae299845630d)
 - RLHF (Reinforcement Learning from Human Feedback): 모델의 출력을 개선하기 위해 인간의 피드백을 이용한 강화학습을 적용했습니다.
