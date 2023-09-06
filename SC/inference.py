@@ -15,11 +15,12 @@ warnings.filterwarnings("ignore", category=UserWarning)
 parser = argparse.ArgumentParser(prog="inference", description="Inference with Kullm")
 parser.add_argument("--model-ckpt-path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/model_test_4",help="Kullm model path")
 
-# model_test_1 = 배치사이즈 128, 200 step train, 56.2160680	
-# model_test_2 = 배치사이즈 8, 200 step train, 53.8771794
-# model_test_3 = 배치사이즈 8, 4800 step train, 56.8982848
-# model_test_4 = 배치사이즈 8, 2 epoch, 
-# model_test_5 = 배치사이즈 8, 3 epoch,
+# model_test_1, 배치사이즈 128, 200 step train, beam_size 6, 56.2160680	
+# model_test_2, 배치사이즈 8, 200 step train, beam_size 6, 53.8771794
+# model_test_3, 배치사이즈 8, 4800 step train, beam_size 6, 56.8982848
+# model_test_4, 배치사이즈 8, 2 epoch, beam_size 6, 58.7103113
+# model_test_4, 배치사이즈 8, 2 epoch, beam_size 8, 
+# model_test_5, 배치사이즈 4, 2 epoch, 
 # mdoel_test_6
 
 
@@ -43,14 +44,14 @@ def inference(args):
     logger.info("[+] Load Dataset")
     data_path = "resource/data/nikluge-sc-2023-test.jsonl"
     RLHF_path = "resource/data/nikluge-sc-2023-dev.jsonl"
-    test_data = load_dataset("json", data_files=RLHF_path)
+    test_data = load_dataset("json", data_files=data_path)
     test_data = test_data["train"]
 
     logger.info("[+] Start Inference")
     
     def infer(instruction="", input_text=""):
         prompt = prompter.generate_prompt(instruction, input_text)
-        output = pipe(prompt, max_length=512, temperature=0.2, num_beams=6, eos_token_id=2)
+        output = pipe(prompt, max_length=512, temperature=0.2, num_beams=8, eos_token_id=2)
         s = output[0]["generated_text"]
         result = prompter.get_response(s)
 
@@ -67,7 +68,7 @@ def inference(args):
     all_output_data_points = []  # 결과를 저장할 리스트
 
     for i, data_point in enumerate(tqdm(test_data, desc="Processing")):  # tqdm을 사용하여 진행 상태를 표시
-        instruction = "문맥에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 접속사를 신경써서 만들어주세요."
+        instruction = "문맥과 문법적 정확성 및 논리적 일관성에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 접속사를 신경써서 만들어주세요."
         input_text = f"{data_point['input']['sentence1']} {special_token} {data_point['input']['sentence3']}"
 
         result = infer(instruction=instruction, input_text=input_text)
