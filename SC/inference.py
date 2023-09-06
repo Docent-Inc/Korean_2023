@@ -13,13 +13,14 @@ logging.getLogger("transformers").setLevel(logging.ERROR)
 warnings.filterwarnings("ignore", category=UserWarning)
 
 parser = argparse.ArgumentParser(prog="inference", description="Inference with Kullm")
-parser.add_argument("--model-ckpt-path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/model_test_3",help="Kullm model path")
+parser.add_argument("--model-ckpt-path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/model_test_4",help="Kullm model path")
 
-# model_test_1 = 배치사이즈 128, 200 train, 56.2160680	
-# model_test_2 = 배치사이즈 8, 200 train, 53.8771794
-# model_test_3 = 배치사이즈 8, 4800 train, 
-# model_test_4 = 배치사이즈 8, 3 epoch,
-# mdoel_test_5 = model_test_4 1번 강화학습,
+# model_test_1 = 배치사이즈 128, 200 step train, 56.2160680	
+# model_test_2 = 배치사이즈 8, 200 step train, 53.8771794
+# model_test_3 = 배치사이즈 8, 4800 step train, 56.8982848
+# model_test_4 = 배치사이즈 8, 2 epoch, 
+# model_test_5 = 배치사이즈 8, 3 epoch,
+# mdoel_test_6
 
 
 def inference(args):
@@ -40,9 +41,9 @@ def inference(args):
     prompter = Prompter("kullm")
 
     logger.info("[+] Load Dataset")
-    # data_path = "resource/data/nikluge-sc-2023-test.jsonl"
+    data_path = "resource/data/nikluge-sc-2023-test.jsonl"
     RLHF_path = "resource/data/nikluge-sc-2023-dev.jsonl"
-    test_data = load_dataset("json", data_files=data_path)
+    test_data = load_dataset("json", data_files=RLHF_path)
     test_data = test_data["train"]
 
     logger.info("[+] Start Inference")
@@ -56,13 +57,13 @@ def inference(args):
         return result
 
     # current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    current_time = "v1"
+    current_time = "v2"
     result_file_name = f"inference_results_{current_time}.jsonl"
     special_token_id = 3  # <|sep|> 토큰
     tokenizer = GPTNeoXTokenizerFast.from_pretrained(MODEL)
     special_token = tokenizer.decode([special_token_id])
 
-    batch_size = 500  # 500개의 결과마다 파일에 저장
+    batch_size = 1000  # 500개의 결과마다 파일에 저장
     all_output_data_points = []  # 결과를 저장할 리스트
 
     for i, data_point in enumerate(tqdm(test_data, desc="Processing")):  # tqdm을 사용하여 진행 상태를 표시
@@ -79,7 +80,7 @@ def inference(args):
 
         all_output_data_points.append(output_data_point)  # 메모리에 결과 저장
 
-        # 500개마다 파일에 저장
+        # 1000개마다 파일에 저장
         if (i + 1) % batch_size == 0:
             with open(result_file_name, "a") as f:
                 for output_data_point in all_output_data_points:
