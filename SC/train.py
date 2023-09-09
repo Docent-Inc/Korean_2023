@@ -28,11 +28,11 @@ def train(
     dev_path: str = "resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
     output_dir: str = "/home/dmz/project/Korean_2023/SC/outputs/adapter", # output 경로
     # training hyperparams
-    batch_size: int = 4,
+    batch_size: int = 128,
     micro_batch_size: int = 2,
     num_epochs: int = 3,
-    learning_rate: float = 3e-4,
-    cutoff_len: int = 512,
+    learning_rate: float = 2e-4,
+    cutoff_len: int = 256,
     # lora hyperparams
     lora_r: int = 32,
     lora_alpha: int = 64,
@@ -209,7 +209,7 @@ def train(
         args=transformers.TrainingArguments(
             per_device_train_batch_size=micro_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
-            warmup_steps=3000,
+            warmup_steps=100,
             num_train_epochs=num_epochs,
             learning_rate=learning_rate,
             fp16=True,
@@ -217,8 +217,8 @@ def train(
             optim="adamw_torch",
             evaluation_strategy="steps" if val_set_size > 0 else "no",
             save_strategy="steps",
-            eval_steps=10000 if val_set_size > 0 else None,
-            save_steps=10000,
+            eval_steps=200 if val_set_size > 0 else None,
+            save_steps=200,
             output_dir=output_dir,
             save_total_limit=3,
             load_best_model_at_end=True if val_set_size > 0 else False,
@@ -229,7 +229,8 @@ def train(
         ),
         data_collator=transformers.DataCollatorForSeq2Seq(
             tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
-        )
+        ),
+        callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
     )
     model.config.use_cache = False
 
