@@ -76,6 +76,14 @@ python -m run inference \
     --device cuda:0
 ```
 
+```
+python inference.py \
+    --model-ckpt-path outputs/checkpoint-2372 \
+    --output-path outputs/files/output.jsonl \
+    --batch-size 64 \
+    --device cuda:0
+```
+
 ### Reference
 국립국어원 모두의말뭉치 (https://corpus.korean.go.kr/)  
 transformers (https://github.com/huggingface/transformers)  

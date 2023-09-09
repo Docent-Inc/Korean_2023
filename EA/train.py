@@ -23,8 +23,8 @@ parser = argparse.ArgumentParser(prog="train", description="Train Table to Text 
 
 g = parser.add_argument_group("Common Parameter")
 g.add_argument("--output-dir", type=str, required=True, help="output directory path to save artifacts")
-g.add_argument("--model-path", type=str, default="klue/roberta-base", help="model file path")
-g.add_argument("--tokenizer", type=str, default="klue/roberta-base", help="huggingface tokenizer path")
+g.add_argument("--model-path", type=str, default="klue/roberta-large", help="model file path")
+g.add_argument("--tokenizer", type=str, default="klue/roberta-large", help="huggingface tokenizer path")
 g.add_argument("--max-seq-len", type=int, default=128, help="max sequence length")
 g.add_argument("--batch-size", type=int, default=32, help="training batch size")
 g.add_argument("--valid-batch-size", type=int, default=64, help="validation batch size")
