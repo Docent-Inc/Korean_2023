@@ -15,14 +15,6 @@ warnings.filterwarnings("ignore", category=UserWarning)
 parser = argparse.ArgumentParser(prog="inference", description="Inference with Kullm")
 parser.add_argument("--model-ckpt-path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/model_test_4",help="Kullm model path")
 
-# model_test_1, 배치사이즈 128, 200 step train, beam_size 6, 56.2160680	
-# model_test_2, 배치사이즈 8, 200 step train, beam_size 6, 53.8771794
-# model_test_3, 배치사이즈 8, 4800 step train, beam_size 6, 56.8982848
-# model_test_4, 배치사이즈 8, 2 epoch, beam_size 6, 58.7103113
-# model_test_4, 배치사이즈 8, 2 epoch, beam_size 8, 
-# model_test_5, 배치사이즈 4, 2 epoch, 
-# mdoel_test_6
-
 
 def inference(args):
     logger = get_logger("inference")
@@ -51,20 +43,20 @@ def inference(args):
     
     def infer(instruction="", input_text=""):
         prompt = prompter.generate_prompt(instruction, input_text)
-        output = pipe(prompt, max_length=512, temperature=0.2, num_beams=8, eos_token_id=2)
+        output = pipe(prompt, max_length=256, temperature=0.2, num_beams=18, eos_token_id=2)
         s = output[0]["generated_text"]
         result = prompter.get_response(s)
 
         return result
 
     # current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    current_time = "v2"
+    current_time = "v8"
     result_file_name = f"inference_results_{current_time}.jsonl"
     special_token_id = 3  # <|sep|> 토큰
     tokenizer = GPTNeoXTokenizerFast.from_pretrained(MODEL)
     special_token = tokenizer.decode([special_token_id])
 
-    batch_size = 1000  # 500개의 결과마다 파일에 저장
+    batch_size = 1000  # 1000개의 결과마다 파일에 저장
     all_output_data_points = []  # 결과를 저장할 리스트
 
     for i, data_point in enumerate(tqdm(test_data, desc="Processing")):  # tqdm을 사용하여 진행 상태를 표시

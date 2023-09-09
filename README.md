@@ -18,7 +18,7 @@
 
 ### 학습 전략
 - LoRA (Low-Rank Adaptation of Large Language Models): LoRA는 PEFT(Parameter Effecient Fine-Tuning)의 기법 중 하나입니다. Pre-trained model의 weight는 고정한 채로, 몇 개의 dense(fc) layer만 학습시켜 downstream task의 연산량을 줄일 수 있습니다.
-- Regularization: 최대한 작은 배치사이즈로 학습시켜 과적합을 방지하고 test셋에서도 잘 작동할 수 있도록 설계합니다.
+- 학습률과 배치사이즈를 조절하며 최적의 loss를 만들 수 있도록 합니다.
 
 ### 추론 전략
 - beam search의 계수를 최대한 늘려 더 정확한 문장을 생성하도록 유도합니다.
