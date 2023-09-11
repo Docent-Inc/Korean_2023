@@ -86,83 +86,64 @@ def main(args):
     
 
     labels = list(train_ds["output"][0].keys())
-    id2label = {idx:label for idx, label in enumerate(labels)}
-    label2id = {label:idx for idx, label in enumerate(labels)}
-    with open(os.path.join(args.output_dir, "label2id.json"), "w") as f:
-        json.dump(label2id, f)
+    id2label = {0: "False", 1: "True"}
+    label2id = {"False": 0, "True": 1}
 
-    def preprocess_data(examples):
-        # take a batch of texts
-        text1 = examples["input"]["form"]
-        text2 = examples["input"]["target"]["form"]
-        # encode them
-        encoding = tokenizer(text1, text2, padding="max_length", truncation=True, max_length=args.max_seq_len)
-        # add labels
-        encoding["labels"] = [0.0] * len(labels)
-        for key, idx in label2id.items():
-            if examples["output"][key] == 'True':
-                encoding["labels"][idx] = 1.0
+    for label in labels:
+        logger.info(f"Training model for label: {label}")
+
+        def preprocess_data_for_label(examples, label=label):
+            text1 = examples["input"]["form"]
+            text2 = examples["input"]["target"]["form"]
+            encoding = tokenizer(text1, text2, padding="max_length", truncation=True, max_length=args.max_seq_len)
+            encoding["labels"] = [label2id[examples["output"][label]]]
+            return encoding
+
+        encoded_tds = train_ds.map(preprocess_data_for_label, remove_columns=train_ds.column_names)
+        encoded_vds = valid_ds.map(preprocess_data_for_label, remove_columns=valid_ds.column_names)
+
+        model = AutoModelForSequenceClassification.from_pretrained(
+            args.model_path,
+            problem_type="single_label_classification",
+            num_labels=2,
+            id2label=id2label,
+            label2id=label2id
+        )
         
-        return encoding
+        targs = TrainingArguments(
+            output_dir=os.path.join(args.output_dir, label),  # Save each model in a separate directory
+            evaluation_strategy="epoch",
+            save_strategy="epoch",
+            learning_rate=args.learning_rate,
+            per_device_train_batch_size=args.batch_size,
+            per_device_eval_batch_size=args.valid_batch_size,
+            num_train_epochs=args.epochs,
+            weight_decay=args.weight_decay,
+            load_best_model_at_end=True,
+            metric_for_best_model= "f1",
+        )
 
-    encoded_tds = train_ds.map(preprocess_data, remove_columns=train_ds.column_names)
-    encoded_vds = valid_ds.map(preprocess_data, remove_columns=valid_ds.column_names)
 
-    logger.info(f'[+] Load Model from "{args.model_path}"')
-    model = AutoModelForSequenceClassification.from_pretrained(
-        args.model_path,
-        problem_type="multi_label_classification",
-        num_labels=len(labels),
-        id2label=id2label,
-        label2id=label2id
-    )
+        def binary_metrics(predictions, labels):
+                y_pred = np.argmax(predictions, axis=1)
+                accuracy = accuracy_score(y_true=labels, y_pred=y_pred)
+                return {'accuracy': accuracy}
 
-    targs = TrainingArguments(
-        output_dir=args.output_dir,
-        evaluation_strategy="epoch",
-        save_strategy="epoch",
-        learning_rate=args.learning_rate,
-        per_device_train_batch_size=args.batch_size,
-        per_device_eval_batch_size=args.valid_batch_size,
-        num_train_epochs=args.epochs,
-        weight_decay=args.weight_decay,
-        load_best_model_at_end=True,
-        metric_for_best_model= "f1",
-    )
-
-    def multi_label_metrics(predictions, labels, threshold=0.5):
-        # first, apply sigmoid on predictions which are of shape (batch_size, num_labels)
-        sigmoid = torch.nn.Sigmoid()
-        probs = sigmoid(torch.Tensor(predictions))
-        # next, use threshold to turn them into integer predictions
-        y_pred = np.zeros(probs.shape)
-        y_pred[np.where(probs >= threshold)] = 1
-        # finally, compute metrics
-        y_true = labels
-        f1_micro_average = f1_score(y_true=y_true, y_pred=y_pred, average='micro')
-        roc_auc = roc_auc_score(y_true, y_pred, average = 'micro')
-        accuracy = accuracy_score(y_true, y_pred)
-        # return as dictionary
-        metrics = {'f1': f1_micro_average,
-                   'roc_auc': roc_auc,
-                   'accuracy': accuracy}
-        return metrics
-
-    def compute_metrics(p: EvalPrediction):
-        preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
-        result = multi_label_metrics(predictions=preds, labels=p.label_ids)
-        return result
-
-    trainer = Trainer(
-        model,
-        targs,
-        train_dataset=encoded_tds,
-        eval_dataset=encoded_vds,
-        tokenizer=tokenizer,
-        compute_metrics=compute_metrics,
-        callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
-    )
-    trainer.train()
+        def compute_metrics(p: EvalPrediction):
+            preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
+            result = binary_metrics(predictions=preds, labels=p.label_ids)
+            return result
+        
+        trainer = Trainer(
+            model,
+            targs,
+            train_dataset=encoded_tds,
+            eval_dataset=encoded_vds,
+            tokenizer=tokenizer,
+            compute_metrics=compute_metrics,
+            callbacks=[EarlyStoppingCallback(early_stopping_patience=3)]
+        )
+        trainer.train()
 
 
 if __name__ == "__main__":
