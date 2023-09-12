@@ -43,14 +43,14 @@ def inference(args):
     
     def infer(instruction="", input_text=""):
         prompt = prompter.generate_prompt(instruction, input_text)
-        output = pipe(prompt, max_length=256, temperature=0.2, num_beams=18, eos_token_id=2)
+        output = pipe(prompt, max_length=256, temperature=0.2, num_beams=2, eos_token_id=2)
         s = output[0]["generated_text"]
         result = prompter.get_response(s)
 
         return result
 
     # current_time = datetime.datetime.now().strftime("%Y%m%d%H%M%S")
-    current_time = "v8"
+    current_time = "v10"
     result_file_name = f"inference_results_{current_time}.jsonl"
     special_token_id = 3  # <|sep|> 토큰
     tokenizer = GPTNeoXTokenizerFast.from_pretrained(MODEL)

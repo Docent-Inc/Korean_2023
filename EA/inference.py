@@ -15,7 +15,7 @@ from transformers import AutoModelForSequenceClassification, AutoTokenizer
 parser = argparse.ArgumentParser(prog="train", description="Inference Table to Text with BART")
 
 parser.add_argument("--model-ckpt-path", type=str, help="model path")
-parser.add_argument("--output-path", type=str, default="outputs/files/output2.jsonl", help="output tsv file path")
+parser.add_argument("--output-path", type=str, default="outputs/files/output9.jsonl", help="output tsv file path")
 parser.add_argument("--batch-size", type=int, default=32, help="training batch size")
 parser.add_argument("--max-seq-len", type=int, default=512, help="summary max sequence length")
 parser.add_argument("--threshold", type=float, default=0.5, help="inferrence threshold")

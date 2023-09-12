@@ -28,10 +28,10 @@ def train(
     dev_path: str = "resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
     output_dir: str = "/home/dmz/project/Korean_2023/SC/outputs/adapter", # output 경로
     # training hyperparams
-    batch_size: int = 128,
+    batch_size: int = 2,
     micro_batch_size: int = 2,
     num_epochs: int = 3,
-    learning_rate: float = 2e-4,
+    learning_rate: float = 3e-4,
     cutoff_len: int = 256,
     # lora hyperparams
     lora_r: int = 32,
