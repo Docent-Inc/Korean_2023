@@ -108,6 +108,7 @@ def main(args):
     
     true_labels = []
     predicted_labels = []
+    incorrect_predictions = []  # List to store incorrect predictions
     
     for idx, _ in enumerate(j_list):
         j_list[idx]["output"] = {}
@@ -123,9 +124,18 @@ def main(args):
             else:
                 j_list[idx]["output"][label] = "False"
                 predicted_labels.append(0)
+            
+            # Check if the prediction is incorrect and store the instance
+            if true_labels[-1] != predicted_labels[-1]:
+                incorrect_predictions.append(j_list[idx])
 
     f1 = f1_score(true_labels, predicted_labels)
     print(f"F1 Score: {f1:.4f}")
+
+    # Save the incorrect predictions to a JSON file
+    incorrect_file_path = "incorrect_predictions.jsonl"
+    jsonldump(incorrect_predictions, incorrect_file_path)
+    print(f"Incorrect predictions saved to {incorrect_file_path}")
 
     jsonldump(j_list, args.output_path)
 
