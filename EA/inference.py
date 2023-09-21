@@ -12,6 +12,9 @@ from torch.utils.data import DataLoader
 from datasets import Dataset
 from transformers import AutoModelForSequenceClassification, AutoTokenizer
 
+from sklearn.metrics import f1_score
+
+
 parser = argparse.ArgumentParser(prog="train", description="Inference Table to Text with BART")
 
 parser.add_argument("--model-ckpt-path", type=str, help="model path")
@@ -102,13 +105,27 @@ def main(args):
                 f.write(json.dumps(json_data, ensure_ascii=False)+'\n')
 
     j_list = jsonlload("resource/data/nikluge-ea-2023-test.jsonl")
+    
+    true_labels = []
+    predicted_labels = []
+    
     for idx, _ in enumerate(j_list):
         j_list[idx]["output"] = {}
         for label_idx, label in enumerate(labels):
+            if "output" in j_list[idx]:
+                true_labels.append(1 if j_list[idx]["output"][label] == "True" else 0)
+            else:
+                true_labels.append(0)
+            
             if outputs[label_idx][idx]:
                 j_list[idx]["output"][label] = "True"
+                predicted_labels.append(1)
             else:
                 j_list[idx]["output"][label] = "False"
+                predicted_labels.append(0)
+
+    f1 = f1_score(true_labels, predicted_labels)
+    print(f"F1 Score: {f1:.4f}")
 
     jsonldump(j_list, args.output_path)
 
