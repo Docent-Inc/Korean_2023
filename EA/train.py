@@ -120,14 +120,14 @@ def main(args):
             num_train_epochs=args.epochs,
             weight_decay=args.weight_decay,
             load_best_model_at_end=True,
-            metric_for_best_model= "f1",
+            metric_for_best_model= "accuracy",
         )
 
 
         def binary_metrics(predictions, labels):
-                y_pred = np.argmax(predictions, axis=1)
-                accuracy = accuracy_score(y_true=labels, y_pred=y_pred)
-                return {'accuracy': accuracy}
+            y_pred = np.argmax(predictions, axis=1)
+            accuracy = accuracy_score(y_true=labels, y_pred=y_pred)
+            return {'accuracy': accuracy}
 
         def compute_metrics(p: EvalPrediction):
             preds = p.predictions[0] if isinstance(p.predictions, tuple) else p.predictions
