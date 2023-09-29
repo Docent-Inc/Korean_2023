@@ -54,16 +54,20 @@ dev_dataloader = DataLoader(dev_dataset, batch_size=BATCH_SIZE)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+learning_rate = 2e-5
+epochs = 100
+early_stop_patient = 5
+
 for idx, label in enumerate(labels):
     print(f"Training model for label: {label}")
 
     model = ElectraForSequenceClassification.from_pretrained("beomi/KcELECTRA-base-v2022", num_labels=2).to(device)
-    optimizer = AdamW(model.parameters(), lr=2e-5)
+    optimizer = AdamW(model.parameters(), lr=learning_rate)
 
     early_stop_counter = 0
     best_f1 = 0
 
-    for epoch in range(100):  # Assuming max 10 epochs, you can adjust
+    for epoch in range(epochs):  # Assuming max 10 epochs, you can adjust
         model.train()
         total_loss = 0
 
@@ -98,7 +102,7 @@ for idx, label in enumerate(labels):
                 all_true.extend(current_batch_labels)
                 
 
-        f1 = f1_score(all_true, all_preds)
+        f1 = f1_score(all_true, all_preds, average = "macro")
         
         print(f"Epoch {epoch + 1} | Eval F1 score: {f1}")
 
@@ -110,7 +114,7 @@ for idx, label in enumerate(labels):
         else:
             early_stop_counter += 1
 
-        if early_stop_counter >= 3:
+        if early_stop_counter >= early_stop_patient:
             break
 
     print(f"Best F1 for {label}: {best_f1}")
