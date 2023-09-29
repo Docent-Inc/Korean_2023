@@ -17,9 +17,6 @@ from peft import (
 )
 from transformers import GPTNeoXForCausalLM, GPTNeoXTokenizerFast, EarlyStoppingCallback
 warnings.filterwarnings("ignore", category=UserWarning)
-"""
-KULLM train.py
-"""
 
 def train(
     # model/data params
@@ -28,10 +25,10 @@ def train(
     dev_path: str = "resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
     output_dir: str = "/home/dmz/project/Korean_2023/SC/outputs/adapter", # output 경로
     # training hyperparams
-    batch_size: int = 2,
+    batch_size: int = 256,
     micro_batch_size: int = 2,
-    num_epochs: int = 3,
-    learning_rate: float = 3e-4,
+    num_epochs: int = 8,
+    learning_rate: float = 1e-4,
     cutoff_len: int = 256,
     # lora hyperparams
     lora_r: int = 32,
@@ -103,10 +100,12 @@ def train(
 
     model = GPTNeoXForCausalLM.from_pretrained(
         base_model,
-        load_in_8bit=True,
-        torch_dtype=torch.float32,
+        cache_dir="/media/mydrive",
+        # load_in_8bit=True,
+        torch_dtype="auto",
         device_map=device_map,
     )
+    model.half()
 
     logger.info(f'[+] Load Tokenizer"')
     tokenizer = GPTNeoXTokenizerFast.from_pretrained(base_model)

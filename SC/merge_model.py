@@ -6,10 +6,11 @@ import transformers
 from peft import PeftModel
 import peft
 from transformers import GPTNeoXForCausalLM, GPTNeoXTokenizerFast, AutoTokenizer
+os.environ["TRANSFORMERS_CACHE"] = "/media/mydrive"
 
 parser = argparse.ArgumentParser()
 parser.add_argument("--base_model", type=str, default="nlpai-lab/kullm-polyglot-5.8b-v2")
-parser.add_argument("--lora_model_path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/adapter/checkpoint-2800")
+parser.add_argument("--lora_model_path", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/adapter/checkpoint-3600")
 parser.add_argument("--output_dir", type=str, default="/home/dmz/project/Korean_2023/SC/outputs/model_test_5")
 args = parser.parse_args()
 
@@ -23,6 +24,7 @@ tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
 
 base_model = GPTNeoXForCausalLM.from_pretrained(
     BASE_MODEL,
+    cache_dir="/media/mydrive",
     load_in_8bit=False,
     torch_dtype=torch.float16,
     device_map={"": "cpu"},
