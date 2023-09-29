@@ -1,2 +1,2 @@
-train.py
-inference.py
+python train.py
+python inference.py
