@@ -58,12 +58,12 @@ for idx, label in enumerate(labels):
     print(f"Training model for label: {label}")
 
     model = ElectraForSequenceClassification.from_pretrained("beomi/KcELECTRA-base-v2022", num_labels=2).to(device)
-    optimizer = AdamW(model.parameters(), lr=5e-5)
+    optimizer = AdamW(model.parameters(), lr=2e-5)
 
     early_stop_counter = 0
     best_f1 = 0
 
-    for epoch in range(10):  # Assuming max 10 epochs, you can adjust
+    for epoch in range(100):  # Assuming max 10 epochs, you can adjust
         model.train()
         total_loss = 0
 
