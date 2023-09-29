@@ -7,8 +7,6 @@ from sklearn.metrics import f1_score
 from tqdm import tqdm
 
 
-
-
 def load_data(file_path):
     with open(file_path, 'r') as f:
         data = [json.loads(line) for line in f]
@@ -52,10 +50,6 @@ dev_dataset = create_dataset(tokenized_dev, dev_labels)
 
 train_dataloader = DataLoader(train_dataset, shuffle=True, batch_size=BATCH_SIZE)
 dev_dataloader = DataLoader(dev_dataset, batch_size=BATCH_SIZE)
-
-
-
-
 
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")

@@ -1,144 +1,77 @@
-
-import argparse
 import json
-import logging
-import os
-import sys
+from transformers import ElectraTokenizer, ElectraForSequenceClassification
+from torch.utils.data import DataLoader, TensorDataset
+import torch
 from tqdm import tqdm
 
-import numpy as np
-import torch
-from torch.utils.data import DataLoader
-from datasets import Dataset
-from transformers import AutoModelForSequenceClassification, AutoTokenizer
+BATCH_SIZE = 512
+labels = ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger", "sadness"]
+tokenizer = ElectraTokenizer.from_pretrained("beomi/KcELECTRA-base-v2022")
+device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-from sklearn.metrics import f1_score
+# Load trained models
+models = {}
+for label in labels:
+    model_path = f"outputs/model_{label}"
+    model = ElectraForSequenceClassification.from_pretrained(model_path).to(device)
+    models[label] = model
 
+def tokenize_data(texts):
+    return tokenizer([text[0] for text in texts], [text[1] for text in texts], padding=True, truncation=True, return_tensors="pt")
 
-parser = argparse.ArgumentParser(prog="train", description="Inference Table to Text with BART")
+def create_dataset(tokenized_data):
+    input_ids = tokenized_data['input_ids']
+    attention_mask = tokenized_data['attention_mask']
+    return TensorDataset(input_ids, attention_mask)
 
-parser.add_argument("--model-ckpt-path", type=str, help="model path")
-parser.add_argument("--output-path", type=str, default="outputs/files/output9.jsonl", help="output tsv file path")
-parser.add_argument("--batch-size", type=int, default=32, help="training batch size")
-parser.add_argument("--max-seq-len", type=int, default=512, help="summary max sequence length")
-parser.add_argument("--threshold", type=float, default=0.5, help="inferrence threshold")
-parser.add_argument("--num-beams", type=int, default=3, help="beam size")
-parser.add_argument("--device", type=str, default="cpu", help="inference device")
+from tqdm import tqdm
 
+def infer(data):
+    texts = [(item['input']['form'], item['input']['target']['form']) for item in data]
+    tokenized_data = tokenize_data(texts)
+    dataset = create_dataset(tokenized_data)
+    dataloader = DataLoader(dataset, batch_size=BATCH_SIZE)
 
-def main(args):
-    logger = logging.getLogger("inference")
-    logger.propagate = False
-    logger.setLevel(logging.DEBUG)
-    if not logger.handlers:
-        handler = logging.StreamHandler(sys.stdout)
-        handler.setFormatter(logging.Formatter("[%(asctime)s] %(message)s"))
-        logger.addHandler(handler)
-
-    logger.info(f"[+] Use Device: {args.device}")
-    device = torch.device(args.device)
-
-    logger.info(f'[+] Load Tokenizer from "{args.model_ckpt_path}"')
-    tokenizer = AutoTokenizer.from_pretrained(args.model_ckpt_path)
-
-    logger.info(f'[+] Load Dataset')
-    test_ds = Dataset.from_json("resource/data/nikluge-ea-2023-test.jsonl")
-    with open(os.path.join(args.model_ckpt_path, "..", "label2id.json")) as f:
-        label2id = json.load(f)
-    labels = list(label2id.keys())
-    id2label = {}
-    for k, v in label2id.items():
-        id2label[v] = k
-
-    def preprocess_data(examples):
-        # take a batch of texts
-        text1 = examples["input"]["form"]
-        text2 = examples["input"]["target"]["form"]
-        # encode them
-        encoding = tokenizer(text1, text2, padding="max_length", truncation=True, max_length=args.max_seq_len)
-
-        return encoding
-
-    encoded_tds = test_ds.map(preprocess_data, remove_columns=test_ds.column_names).with_format("torch")
-    data_loader = DataLoader(encoded_tds, batch_size=args.batch_size)
-
-    logger.info("[+] Eval mode & Disable gradient")
-    torch.set_grad_enabled(False)
-
-    sigmoid = torch.nn.Sigmoid()
-    outputs = [np.zeros((len(test_ds), 1)) for _ in labels]  # Initialize outputs
-
-    for label_idx, label in enumerate(labels):
-        logger.info(f'[+] Load Model for label: {label} from "{os.path.join(args.model_ckpt_path, label)}"')
-        model = AutoModelForSequenceClassification.from_pretrained(
-            os.path.join(args.model_ckpt_path, label),  # Load model from label-specific directory
-            problem_type="single_label_classification",
-            num_labels=2,
-            id2label={0: "False", 1: "True"},
-            label2id={"False": 0, "True": 1}
-        )
-        model.to(device)
-        model.eval()
-
-        logger.info(f"[+] Start Inference for label: {label}")
-        for batch in tqdm(data_loader):
-            oup = model(
-                batch["input_ids"].to(device),
-                token_type_ids=batch["token_type_ids"].to(device),
-                attention_mask=batch["attention_mask"].to(device)
-            )
-            probs = sigmoid(oup.logits).cpu().detach().numpy()
-            y_pred = np.zeros(probs.shape)
-            y_pred[np.where(probs[:, 1] >= args.threshold)] = 1  # Use the second column (index 1) for "True" label
-            outputs[label_idx] = y_pred
-
-    def jsonlload(fname):
-        with open(fname, "r", encoding="utf-8") as f:
-            lines = f.read().strip().split("\n")
-            j_list = [json.loads(line) for line in lines]
-
-        return j_list
-
-    def jsonldump(j_list, fname):
-        with open(fname, "w", encoding='utf-8') as f:
-            for json_data in j_list:
-                f.write(json.dumps(json_data, ensure_ascii=False)+'\n')
-
-    j_list = jsonlload("resource/data/nikluge-ea-2023-test.jsonl")
-    
-    true_labels = []
-    predicted_labels = []
-    incorrect_predictions = []  # List to store incorrect predictions
-    
-    for idx, _ in enumerate(j_list):
-        j_list[idx]["output"] = {}
-        for label_idx, label in enumerate(labels):
-            if "output" in j_list[idx]:
-                true_labels.append(1 if j_list[idx]["output"][label] == "True" else 0)
-            else:
-                true_labels.append(0)
+    results = []
+    idx = 0
+    # Outer tqdm for batches
+    for batch in tqdm(dataloader, desc="Processing batches", position=0, leave=True):
+        batch_input_ids, batch_attention_mask = [b.to(device) for b in batch]
+        
+        # Inner tqdm for items within each batch
+        for i in tqdm(range(len(batch_input_ids)), desc="Processing items", position=1, leave=False):
+            item = data[idx]
+            output = {}
+            for label, model in models.items():
+                with torch.no_grad():
+                    logits = model(input_ids=batch_input_ids[i].unsqueeze(0), attention_mask=batch_attention_mask[i].unsqueeze(0)).logits
+                    pred = torch.argmax(logits, dim=1).cpu().numpy()
+                    output[label] = "True" if pred[0] == 1 else "False"
             
-            if outputs[label_idx][idx]:
-                j_list[idx]["output"][label] = "True"
-                predicted_labels.append(1)
-            else:
-                j_list[idx]["output"][label] = "False"
-                predicted_labels.append(0)
-            
-            # Check if the prediction is incorrect and store the instance
-            if true_labels[-1] != predicted_labels[-1]:
-                incorrect_predictions.append(j_list[idx])
+            results.append({
+                "id": item["id"],
+                "input": item["input"],
+                "output": output
+            })
+            idx += 1
 
-    f1 = f1_score(true_labels, predicted_labels)
-    print(f"F1 Score: {f1:.4f}")
+    return results
 
-    # Save the incorrect predictions to a JSON file
-    incorrect_file_path = "incorrect_predictions.jsonl"
-    jsonldump(incorrect_predictions, incorrect_file_path)
-    print(f"Incorrect predictions saved to {incorrect_file_path}")
 
-    jsonldump(j_list, args.output_path)
 
 
 if __name__ == "__main__":
-    exit(main(parser.parse_args()))
+    # Load test data
+    with open("resource/data/nikluge-ea-2023-test.jsonl", 'r') as f:
+        test_data = [json.loads(line) for line in f]
+
+    predictions = infer(test_data)
+    
+    print(predictions)
+
+    # Save results
+    with open("predictions.jsonl", 'w') as f:
+        for pred in predictions:
+            f.write(json.dumps(pred, ensure_ascii=False) + '\n')
+
+    print("Inference completed and saved to predictions.jsonl")
