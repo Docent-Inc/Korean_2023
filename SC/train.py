@@ -155,12 +155,12 @@ def train(
             ]  # could be sped up, probably
         return tokenized_full_prompt
         
-    def validation_and_tokenize_prompt(data_point):
+    def validate_and_tokenize_prompt(data_point):
         special_token_id = 3  # <|sep|> 토큰
         special_token = tokenizer.decode([special_token_id])
 
         instruction = "문맥과 문법적 정확성 및 논리적 일관성에 맞는 자연스러운 한 문장이 되도록 두 문장 이후에 나올 한 문장을 접속사를 신경써서 만들어주세요."
-        combined_input = f"{data_point['input']['sentence1']} {data_point['input']['output']}"
+        combined_input = f"{data_point['input']['sentence1']}{data_point['input']['output']}"
 
         full_prompt = prompter.generate_prompt(
             instruction,
@@ -215,8 +215,8 @@ def train(
         val_data = val_data.map(generate_and_tokenize_prompt, batched=True)
         
         # train generate_model
-        logger.info(f'[+] Train Generate Model')
-        fold_output_dir = os.path.join(output_dir, f"fold_generate_{i}")
+        logger.info(f'[+] Train Generation Model')
+        fold_output_dir = os.path.join(output_dir, f"fold_generation_{i}")
 
         trainer = transformers.Trainer(
             model=model,
