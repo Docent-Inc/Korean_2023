@@ -54,7 +54,7 @@ dev_dataloader = DataLoader(dev_dataset, batch_size=BATCH_SIZE)
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
-learning_rate = 2e-5
+learning_rate = 1e-5
 epochs = 100
 early_stop_patient = 5
 
