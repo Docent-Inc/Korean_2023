@@ -46,25 +46,12 @@ requirements.txt
 
 
 ## Enviroments
-Docker Image
-```
-docker pull nvcr.io/nvidia/pytorch:22.08-py3 
-```
 
-Docker Run Script
-```
-docker run -dit --gpus all --shm-size=8G --name baseline_ea nvcr.io/nvidia/pytorch:22.08-py3
-```
-
-Install Python Dependency
-```
-pip install -r requirements.txt
-```
 
 ## How to Run
 ### Train
 ```
-python train.py --output-dir outputs --model-path "beomi/KcELECTRA-base" --seed 42 --epoch 100 --learning-rate 2e-5 --weight-decay 0.01 --batch-size 4 --valid-batch-size 64
+python train.py --model_name beomi/KcELECTRA-base-v2022 -bs 64 --lr 1e-5 --kfold 1 --nsplit 9 --wandb 1
 ```
 
 ### Inference
