@@ -17,22 +17,20 @@ from peft import (
 )
 from transformers import GPTNeoXForCausalLM, GPTNeoXTokenizerFast, EarlyStoppingCallback
 warnings.filterwarnings("ignore", category=UserWarning)
-"""
-KULLM train.py
-"""
 
 def train(
     # model/data params
     base_model: str = "nlpai-lab/kullm-polyglot-5.8b-v2", # base mdoel 경로
-    data_path: str = "resource/data/nikluge-sc-2023-train.jsonl", # train data 경로
-    dev_path: str = "resource/data/nikluge-sc-2023-dev.jsonl", # dev data 경로
-    output_dir: str = "/home/dmz/project/Korean_2023/SC/outputs/adapter", # output 경로
+    data_path: str = "resource/splits", # data_set 경로
+    output_dir: str = "outputs/adapter", # output 경로
     # training hyperparams
-    batch_size: int = 2,
+    batch_size: int = 256,
     micro_batch_size: int = 2,
-    num_epochs: int = 3,
-    learning_rate: float = 3e-4,
+    num_epochs: int = 8,
+    learning_rate: float = 1e-4,
     cutoff_len: int = 256,
+    # k-fold Rejection Sampling
+    k: int = 5,
     # lora hyperparams
     lora_r: int = 32,
     lora_alpha: int = 64,
@@ -43,7 +41,7 @@ def train(
     add_eos_token: bool = False,
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
     # wandb params
-    wandb_project: str = "",
+    wandb_project: str = "Korean-AI",
     wandb_run_name: str = "",
     wandb_watch: str = "",  # options: false | gradients | all
     wandb_log_model: str = "",  # options: false | true
@@ -58,7 +56,6 @@ def train(
             f"Training Alpaca-LoRA model with params:\n"
             f"base_model: {base_model}\n"
             f"data_path: {data_path}\n"
-            f"dev_path: {dev_path}\n"
             f"output_dir: {output_dir}\n"
             f"batch_size: {batch_size}\n"
             f"micro_batch_size: {micro_batch_size}\n"
@@ -103,8 +100,9 @@ def train(
 
     model = GPTNeoXForCausalLM.from_pretrained(
         base_model,
+        cache_dir="/media/mydrive", # 모델 저장 경로
         load_in_8bit=True,
-        torch_dtype=torch.float32,
+        torch_dtype="auto",
         device_map=device_map,
     )
 
@@ -130,7 +128,7 @@ def train(
 
         result["labels"] = result["input_ids"].copy()
         return result
-
+    
     def generate_and_tokenize_prompt(data_point):
         special_token_id = 3  # <|sep|> 토큰
         special_token = tokenizer.decode([special_token_id])
@@ -156,97 +154,164 @@ def train(
                 user_prompt_len:
             ]  # could be sped up, probably
         return tokenized_full_prompt
+        
+    def validate_and_tokenize_prompt(data_point):
+        special_token_id = 3  # <|sep|> 토큰
+        special_token = tokenizer.decode([special_token_id])
 
-    model = prepare_model_for_int8_training(model)
+        instruction = "문맥과 문법적 정확성 및 논리적 일관성에 맞는 자연스러운 한 문장이 되도록 두 문장 이후에 나올 한 문장을 접속사를 신경써서 만들어주세요."
+        combined_input = f"{data_point['input']['sentence1']}{data_point['input']['output']}"
 
-    config = LoraConfig(
-        r=lora_r,
-        lora_alpha=lora_alpha,
-        target_modules=lora_target_modules,
-        lora_dropout=lora_dropout,
-        bias="none",
-        task_type="CAUSAL_LM",
-    )
-    model = get_peft_model(model, config)
+        full_prompt = prompter.generate_prompt(
+            instruction,
+            combined_input,
+            data_point["sentence1"],
+        )
+        tokenized_full_prompt = tokenize(full_prompt)
+        if not train_on_inputs:
+            user_prompt = prompter.generate_prompt(instruction, combined_input)
+            tokenized_user_prompt = tokenize(user_prompt, add_eos_token=add_eos_token)
+            user_prompt_len = len(tokenized_user_prompt["input_ids"])
 
-    with open(dev_path, 'r') as f:
-        lines = f.readlines()
-        val_set_size = len(lines)
+            if add_eos_token:
+                user_prompt_len -= 1
 
-    if resume_from_checkpoint:
-        # Check the available weights and load them
-        checkpoint_name = os.path.join(resume_from_checkpoint, "pytorch_model.bin")  # Full checkpoint
-        if not os.path.exists(checkpoint_name):
-            checkpoint_name = os.path.join(
-                resume_from_checkpoint, "adapter_model.bin"
-            )  # only LoRA model - LoRA config above has to fit
-            resume_from_checkpoint = False  # So the trainer won't try loading its state
-        # The two files above have a different name depending on how they were saved, but are actually the same.
-        if os.path.exists(checkpoint_name):
-            print(f"Restarting from {checkpoint_name}")
-            adapters_weights = torch.load(checkpoint_name)
-            set_peft_model_state_dict(model, adapters_weights)
-        else:
-            print(f"Checkpoint {checkpoint_name} not found")
-
-    model.print_trainable_parameters()  # Be more transparent about the % of trainable params.
-
-    logger.info(f'[+] Load Dataset')
-    data = load_dataset("json", data_files=data_path)
-    dev_data = load_dataset("json", data_files=dev_path)
-    train_data = data["train"].shuffle().map(generate_and_tokenize_prompt)
-    val_data = dev_data["train"].shuffle().map(generate_and_tokenize_prompt)
+            tokenized_full_prompt["labels"] = [-100] * user_prompt_len + tokenized_full_prompt["labels"][
+                user_prompt_len:
+            ]  # could be sped up, probably
+        return tokenized_full_prompt
 
     if not ddp and torch.cuda.device_count() > 1:
-        # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
-        model.is_parallelizable = True
-        model.model_parallel = True
-    
-    trainer = transformers.Trainer(
-        model=model,
-        train_dataset=train_data,
-        eval_dataset=val_data,
-        args=transformers.TrainingArguments(
-            per_device_train_batch_size=micro_batch_size,
-            gradient_accumulation_steps=gradient_accumulation_steps,
-            warmup_steps=100,
-            num_train_epochs=num_epochs,
-            learning_rate=learning_rate,
-            fp16=True,
-            logging_steps=1,
-            optim="adamw_torch",
-            evaluation_strategy="steps" if val_set_size > 0 else "no",
-            save_strategy="steps",
-            eval_steps=200 if val_set_size > 0 else None,
-            save_steps=200,
-            output_dir=output_dir,
-            save_total_limit=3,
-            load_best_model_at_end=True if val_set_size > 0 else False,
-            ddp_find_unused_parameters=False if ddp else None,
-            group_by_length=group_by_length,
-            report_to="wandb" if use_wandb else None,
-            run_name=wandb_run_name if use_wandb else None,
-        ),
-        data_collator=transformers.DataCollatorForSeq2Seq(
-            tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
-        ),
-        callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
-    )
-    model.config.use_cache = False
+            # keeps Trainer from trying its own DataParallelism when more than 1 gpu is available
+            model.is_parallelizable = True
+            model.model_parallel = True
 
-    old_state_dict = model.state_dict
-    model.state_dict = (lambda self, *_, **__: get_peft_model_state_dict(self, old_state_dict())).__get__(
-        model, type(model)
-    )
+    for i in range(1, k+1):
+        model = prepare_model_for_int8_training(model)
+        config = LoraConfig(
+            r=lora_r,
+            lora_alpha=lora_alpha,
+            target_modules=lora_target_modules,
+            lora_dropout=lora_dropout,
+            bias="none",
+            task_type="CAUSAL_LM",
+        )
+        model = get_peft_model(model, config)
+        model.print_trainable_parameters()  # Be more transparent about the % of trainable params.
+        logger.info(f'[+] Load Dataset')
+        fold_data_path = os.path.join(data_path, f"td_fold_{i}.jsonl")
+        data = load_dataset("json", data_files=fold_data_path)["train"]
+        
+        # 데이터를 8:2 비율로 train과 validation으로 분할
+        data = data.shuffle()
+        train_size = int(0.8 * len(data))
+        datasets_split = data.train_test_split(train_size=train_size, test_size=len(data)-train_size)
+        train_data = datasets_split["train"]
+        val_data = datasets_split["test"]
+        val_set_size = len(val_data)
 
-    if torch.__version__ >= "2" and sys.platform != "win32":
-        model = torch.compile(model)
+        # 토큰화 및 전처리
+        train_data = train_data.map(generate_and_tokenize_prompt, batched=True)
+        val_data = val_data.map(generate_and_tokenize_prompt, batched=True)
+        
+        # train generate_model
+        logger.info(f'[+] Train Generation Model')
+        fold_output_dir = os.path.join(output_dir, f"fold_generation_{i}")
 
-    trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+        trainer = transformers.Trainer(
+            model=model,
+            train_dataset=train_data,
+            eval_dataset=val_data,
+            args=transformers.TrainingArguments(
+                per_device_train_batch_size=micro_batch_size,
+                gradient_accumulation_steps=gradient_accumulation_steps,
+                warmup_steps=100,
+                num_train_epochs=num_epochs,
+                learning_rate=learning_rate,
+                fp16=True,
+                logging_steps=1,
+                optim="adamw_torch",
+                evaluation_strategy="steps" if val_set_size > 0 else "no",
+                save_strategy="steps",
+                eval_steps=200 if val_set_size > 0 else None,
+                save_steps=200,
+                output_dir=output_dir,
+                save_total_limit=3,
+                load_best_model_at_end=True if val_set_size > 0 else False,
+                ddp_find_unused_parameters=False if ddp else None,
+                group_by_length=group_by_length,
+                report_to="wandb" if use_wandb else None,
+                run_name=wandb_run_name if use_wandb else None,
+            ),
+            data_collator=transformers.DataCollatorForSeq2Seq(
+                tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+            ),
+            # callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
+        )
+        model.config.use_cache = False
 
-    model.save_pretrained(output_dir)
+        old_state_dict = model.state_dict
+        model.state_dict = (lambda self, *_, **__: get_peft_model_state_dict(self, old_state_dict())).__get__(
+            model, type(model)
+        )
 
-    print("\n If there's a warning about missing keys above, please disregard :)")
+        if torch.__version__ >= "2" and sys.platform != "win32":
+            model = torch.compile(model)
+
+        trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+
+        model.save_pretrained(fold_output_dir)
+
+        # train validation_model
+        logger.info(f'[+] Train Validation Model')
+        train_data = train_data.map(validation_and_tokenize_prompt, batched=True)
+        val_data = val_data.map(validation_and_tokenize_prompt, batched=True)
+
+        fold_output_dir = os.path.join(output_dir, f"fold_validation_{i}")
+        trainer = transformers.Trainer(
+            model=model,
+            train_dataset=train_data,
+            eval_dataset=val_data,
+            args=transformers.TrainingArguments(
+                per_device_train_batch_size=micro_batch_size,
+                gradient_accumulation_steps=gradient_accumulation_steps,
+                warmup_steps=100,
+                num_train_epochs=num_epochs,
+                learning_rate=learning_rate,
+                fp16=True,
+                logging_steps=1,
+                optim="adamw_torch",
+                evaluation_strategy="steps" if val_set_size > 0 else "no",
+                save_strategy="steps",
+                eval_steps=200 if val_set_size > 0 else None,
+                save_steps=200,
+                output_dir=output_dir,
+                save_total_limit=3,
+                load_best_model_at_end=True if val_set_size > 0 else False,
+                ddp_find_unused_parameters=False if ddp else None,
+                group_by_length=group_by_length,
+                report_to="wandb" if use_wandb else None,
+                run_name=wandb_run_name if use_wandb else None,
+            ),
+            data_collator=transformers.DataCollatorForSeq2Seq(
+                tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
+            ),
+            # callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
+        )
+        model.config.use_cache = False
+
+        old_state_dict = model.state_dict
+        model.state_dict = (lambda self, *_, **__: get_peft_model_state_dict(self, old_state_dict())).__get__(
+            model, type(model)
+        )
+
+        if torch.__version__ >= "2" and sys.platform != "win32":
+            model = torch.compile(model)
+
+        trainer.train(resume_from_checkpoint=resume_from_checkpoint)
+
+        model.save_pretrained(fold_output_dir)
+        print("\n If there's a warning about missing keys above, please disregard :)")
 
 if __name__ == "__main__":
     fire.Fire(train)
