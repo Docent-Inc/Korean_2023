@@ -9,15 +9,28 @@ labels = ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger"
 tokenizer = ElectraTokenizer.from_pretrained("beomi/KcELECTRA-base-v2022")
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+output_file_path = "predictions.jsonl"
+
+model_number = {
+    "joy" : 1,
+    "anticipation" : 1,
+    "trust" :1,
+    "surprise" :1,
+    "disgust" :1,
+    "fear" :1,
+    "anger" :1,
+    "sadness" :1
+}
+
 # Load trained models
 models = {}
 for label in labels:
-    model_path = f"outputs/model_{label}"
+    model_path = f"outputs/model_{label}_{model_number[label]}"
     model = ElectraForSequenceClassification.from_pretrained(model_path).to(device)
     models[label] = model
 
 def tokenize_data(texts):
-    return tokenizer([text[0] for text in texts], [text[1] for text in texts], padding=True, truncation=True, return_tensors="pt")
+    return tokenizer([text[0] for text in texts], [text[1] for text in texts], padding=True, truncation=True, max_length=256, return_tensors="pt")
 
 def create_dataset(tokenized_data):
     input_ids = tokenized_data['input_ids']
@@ -70,8 +83,8 @@ if __name__ == "__main__":
     print(predictions)
 
     # Save results
-    with open("predictions.jsonl", 'w') as f:
+    with open(output_file_path, 'w') as f:
         for pred in predictions:
             f.write(json.dumps(pred, ensure_ascii=False) + '\n')
 
-    print("Inference completed and saved to predictions.jsonl")
+    print(f"Inference completed and saved to {output_file_path}")

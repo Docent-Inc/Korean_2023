@@ -20,6 +20,7 @@ parser.add_argument('--lr', type=float, default=1e-5)
 parser.add_argument('--early_stop_patient', type=int, default=5)
 parser.add_argument('--nsplit', type=int, default=9, help='n split K-Fold')
 parser.add_argument('--kfold', type=int, default=1, help='n split K-Fold')
+parser.add_argument("--weight_decay", type=float, default=0.01, help="weight decay")
 parser.add_argument('--wandb', type=int, default=1, help='wandb on / off')
 
 args = parser.parse_args()
@@ -61,6 +62,7 @@ else:
         
 
 labels = ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger", "sadness"]
+# ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger", "sadness"]
 
 train_texts = [(item['input']['form'], item['input']['target']['form']) for item in train_data]
 train_labels = [[int(item['output'][label] == "True") for label in labels] for item in train_data]
@@ -115,7 +117,17 @@ for idx, label in enumerate(labels):
     print(f"Training model for label: {label}")
 
     model = ElectraForSequenceClassification.from_pretrained(args.model_name, num_labels=2).to(device)
-    optimizer = AdamW(model.parameters(), lr=args.lr)
+    FULL_FINETUNING = True
+    if FULL_FINETUNING:
+        entity_property_param_optimizer = list(model.named_parameters())
+        no_decay = ['bias', 'LayerNorm.weight']
+        entity_property_optimizer_grouped_parameters = [
+            {'params': [p for n, p in entity_property_param_optimizer if not any(nd in n for nd in no_decay)],
+                'weight_decay_rate': args.weight_decay},
+            {'params': [p for n, p in entity_property_param_optimizer if any(nd in n for nd in no_decay)],
+                'weight_decay_rate': 0.0}
+        ]
+    optimizer = AdamW(entity_property_optimizer_grouped_parameters, lr=args.lr)
 
     early_stop_counter = 0
     best_f1 = 0
@@ -162,7 +174,7 @@ for idx, label in enumerate(labels):
             print("Best epoch ! saved the model")
             best_f1 = f1
             early_stop_counter = 0
-            model.save_pretrained(f"outputs/model_{label}")
+            model.save_pretrained(f"outputs/model_{label}_{args.kfold}")
         else:
             early_stop_counter += 1
 
@@ -170,3 +182,4 @@ for idx, label in enumerate(labels):
             break
 
     print(f"Best F1 for {label}: {best_f1}")
+    wandb.log({label : best_f1})
