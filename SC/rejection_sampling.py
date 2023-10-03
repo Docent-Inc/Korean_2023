@@ -1,7 +1,7 @@
 from transformers import AutoTokenizer, GPTNeoXForCausalLM
 import json
 import numpy as np
-
+from tqdm import tqdm
 import argparse
 parser = argparse.ArgumentParser(prog="rejection_sampling", description="rejection_sampling")
 parser.add_argument("--original-file-path", type=str, default="resource/data/nikluge-sc-2023-test.jsonl",help="original file path")
@@ -24,7 +24,7 @@ def inference(args):
     BASE_MODEL = args.base_model
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
     model = GPTNeoXForCausalLM.from_pretrained(
-        BASE_MODEL
+        BASE_MODEL,
         cache_dir="/media/mydrive",  
     )
 
@@ -34,7 +34,7 @@ def inference(args):
 
     ensemble_results = []
 
-    for data in original_data:
+    for data in tqdm(original_data, desc="Processing data"):
         best_output = None
         best_similarity = -1
         data_id = data['id']

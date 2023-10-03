@@ -60,7 +60,7 @@ def inference(args):
     BASE_MODEL = args.base_model
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
 
-    for i in range(1, k+1):
+    for i in tqdm(range(1, k+1), desc="Processing folds"):
         geneartion_adapter = args.adapter_model_ckpt_path + f"/fold_generation_{i}"
         validation_adapter = args.adapter_model_ckpt_path + f"/fold_validation_{i}"
 
