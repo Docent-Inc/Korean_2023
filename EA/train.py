@@ -1,8 +1,7 @@
 import json
-from transformers import ElectraTokenizer
+from transformers import ElectraTokenizer, ElectraForSequenceClassification, ElectraConfig, AdamW
 from torch.utils.data import DataLoader, TensorDataset
 import torch
-from transformers import ElectraForSequenceClassification, AdamW
 from sklearn.metrics import f1_score
 from datasets import Dataset, concatenate_datasets
 from tqdm import tqdm
@@ -58,29 +57,14 @@ if 1 <= args.kfold <= args.nsplit:
 else:
     print("error: invalid K-fold N")
     exit()
-        
-        
+
+
 # ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger", "sadness"]
-labels = ["trust"]
+labels = ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger", "sadness"]
 
 
-import random
-# Separate train_data based on "trust" target
-true_trust_data = [item for item in train_data if item['output']['trust'] == "True"]
-false_trust_data = [item for item in train_data if item['output']['trust'] == "False"]
-# Randomly sample 5000 instances from false_trust_data
-sampled_false_trust_data = random.sample(false_trust_data, 10000)
-# Combine the two lists to get balanced train_data
-balanced_train_data = true_trust_data + sampled_false_trust_data
-
-print(f"Random sampling")
-
-
-train_texts = [(item['input']['form'], item['input']['target']['form']) for item in balanced_train_data]
-train_labels = [[int(item['output'][label] == "True") for label in labels] for item in balanced_train_data]
-
-# train_texts = [(item['input']['form'], item['input']['target']['form']) for item in train_data]
-# train_labels = [[int(item['output'][label] == "True") for label in labels] for item in train_data]
+train_texts = [(item['input']['form'], item['input']['target']['form']) for item in train_data]
+train_labels = [[int(item['output'][label] == "True") for label in labels] for item in train_data]
 
 dev_texts = [(item['input']['form'], item['input']['target']['form']) for item in dev_data]
 dev_labels = [[int(item['output'][label] == "True") for label in labels] for item in dev_data]
@@ -130,8 +114,12 @@ if args.wandb:
 
 for idx, label in enumerate(labels):
     print(f"Training model for label: {label}")
+    
+    config = ElectraConfig.from_pretrained(args.model_name)
+    config.hidden_dropout_prob = 0.2
+    config.num_labels = 2
+    model = ElectraForSequenceClassification.from_pretrained(args.model_name, config=config, ).to(device)
 
-    model = ElectraForSequenceClassification.from_pretrained(args.model_name, num_labels=2).to(device)
     FULL_FINETUNING = True
     if FULL_FINETUNING:
         entity_property_param_optimizer = list(model.named_parameters())
