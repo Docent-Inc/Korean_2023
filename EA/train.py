@@ -60,12 +60,27 @@ else:
     exit()
         
         
-
-labels = ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger", "sadness"]
 # ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger", "sadness"]
+labels = ["trust"]
 
-train_texts = [(item['input']['form'], item['input']['target']['form']) for item in train_data]
-train_labels = [[int(item['output'][label] == "True") for label in labels] for item in train_data]
+
+import random
+# Separate train_data based on "trust" target
+true_trust_data = [item for item in train_data if item['output']['trust'] == "True"]
+false_trust_data = [item for item in train_data if item['output']['trust'] == "False"]
+# Randomly sample 5000 instances from false_trust_data
+sampled_false_trust_data = random.sample(false_trust_data, 10000)
+# Combine the two lists to get balanced train_data
+balanced_train_data = true_trust_data + sampled_false_trust_data
+
+print(f"Random sampling")
+
+
+train_texts = [(item['input']['form'], item['input']['target']['form']) for item in balanced_train_data]
+train_labels = [[int(item['output'][label] == "True") for label in labels] for item in balanced_train_data]
+
+# train_texts = [(item['input']['form'], item['input']['target']['form']) for item in train_data]
+# train_labels = [[int(item['output'][label] == "True") for label in labels] for item in train_data]
 
 dev_texts = [(item['input']['form'], item['input']['target']['form']) for item in dev_data]
 dev_labels = [[int(item['output'][label] == "True") for label in labels] for item in dev_data]

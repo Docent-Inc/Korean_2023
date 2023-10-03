@@ -1,7 +1,7 @@
 import json
 
 # Assuming the files are named file1.jsonl, file2.jsonl, ... file9.jsonl
-file_names = [f"outputs/files/output{i}.jsonl" for i in range(1, 10)]
+file_names = [f"predictions_{i}.jsonl" for i in range(1, 4)]
 
 # Dictionary to store the counts
 ensemble_counts = {}
