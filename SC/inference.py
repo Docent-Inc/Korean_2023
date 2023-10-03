@@ -14,7 +14,9 @@ warnings.filterwarnings("ignore", category=UserWarning)
 
 parser = argparse.ArgumentParser(prog="inference", description="Inference")
 parser.add_argument("--geneartion-model-ckpt-path", type=str, default="outputs/generation",help="generation model path")
-parser.add_argument("--validation-model-ckpt-path", type=str, default="outputs/validation",help="generation model path")
+parser.add_argument("--validation-model-ckpt-path", type=str, default="outputs/validation",help="validation model path")
+parser.add_argument("--adapter-model-ckpt-path", type=str, default="outputs/adapter",help="adapter model path")
+parser.add_argument("--base_model", type=str, default="nlpai-lab/kullm-polyglot-5.8b-v2")
 
 def infer(instruction="", input_text=""):
         prompt = prompter.generate_prompt(instruction, input_text)
@@ -24,13 +26,49 @@ def infer(instruction="", input_text=""):
 
         return result
 
+def merge_LoRA(BASE_MODEL, adapter, save_path):
+    base_model = GPTNeoXForCausalLM.from_pretrained(
+        BASE_MODEL,
+        cache_dir="/media/mydrive",
+        load_in_8bit=False,
+        torch_dtype=torch.float16,
+        device_map={"": "cpu"},
+    )
+    embedding_size = base_model.get_input_embeddings().weight.size(1)
+    # tokenizer = GPTNeoXTokenizerFast.from_pretrained(adapter)
+    model_vocab_size = base_model.get_input_embeddings().weight.size(0)
+    first_weight = base_model.gpt_neox.layers[0].attention.query_key_value.weight
+    first_weight_old = first_weight.clone()
+
+    lora_model = PeftModel.from_pretrained(
+        base_model,
+        adapter,
+        device_map={"": "cpu"},
+        torch_dtype=torch.float16,
+    )
+
+    lora_weight = lora_model.base_model.gpt_neox.layers[0].attention.query_key_value.weight
+    lora_model = lora_model.merge_and_unload()
+
+    lora_model.train(False)
+    lora_model_sd = lora_model.state_dict()
+    deloreanized_sd = {k.replace("base_model.gpt_neox.", ""): v for k, v in lora_model_sd.items() if "lora" not in k}
+    GPTNeoXForCausalLM.save_pretrained(base_model, save_directory=save_path, state_dict=deloreanized_sd)
+
 def inference(args):
     logger = get_logger("inference")
+    BASE_MODEL = args.base_model
+    tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
 
     for i in range(1, k+1):
-        # TODO: Adapter 모델 merge하는 코드 필요..
+        geneartion_adapter = args.adapter_model_ckpt_path + f"/fold_generation_{i}"
+        validation_adapter = args.adapter_model_ckpt_path + f"/fold_validation_{i}"
 
+        # Marge_generation model
         MODEL = args.geneartion_model_ckpt_path
+        logger.info(f'[+] Marge LoRA adapter {i} Generation Model from "{MODEL}"')
+        merge_LoRA(BASE_MODEL, geneartion_adapter, MODEL)
+
         logger.info(f'[+] Load {i} Generation Model from "{MODEL}"')
         torch.cuda.empty_cache()
         model = AutoModelForCausalLM.from_pretrained(
@@ -51,7 +89,6 @@ def inference(args):
         logger.info(f"[+] Start Generation {i}")
         result_file_name = f"output/files/generate_results_{i}.jsonl"
         special_token_id = 3  # <|sep|> 토큰
-        tokenizer = GPTNeoXTokenizerFast.from_pretrained(MODEL)
         special_token = tokenizer.decode([special_token_id])
 
         all_output_data_points = []  # 결과를 저장할 리스트
@@ -75,8 +112,10 @@ def inference(args):
                 f.write(json.dumps(output_data_point, ensure_ascii=False) + "\n")
 
         logger.info(f"[+] Start Validation {i}")
-        
         MODEL = args.validation_model_ckpt_path
+        logger.info(f'[+] Marge LoRA adapter {i} Validation Model from "{MODEL}"')
+        merge_LoRA(BASE_MODEL, geneartion_adapter, MODEL)
+
         logger.info(f'[+] Load {i} Validation Model from "{MODEL}"')
         torch.cuda.empty_cache()
         model = AutoModelForCausalLM.from_pretrained(
