@@ -20,7 +20,7 @@ parser.add_argument("--validation-model-ckpt-path", type=str, default="outputs/v
 parser.add_argument("--adapter-model-ckpt-path", type=str, default="outputs/adapter",help="adapter model path")
 parser.add_argument("--base_model", type=str, default="nlpai-lab/kullm-polyglot-5.8b-v2")
 
-def infer(instruction="", input_text=""):
+def infer(instruction, input_text, pipe, prompter):
         prompt = prompter.generate_prompt(instruction, input_text)
         output = pipe(prompt, max_length=256, temperature=0.2, num_beams=3, eos_token_id=2)
         s = output[0]["generated_text"]
@@ -69,55 +69,55 @@ def inference(args):
 
         # Marge_generation model
         MODEL = args.geneartion_model_ckpt_path
-        logger.info(f'[+] Marge LoRA adapter {i} Generation Model from "{MODEL}"')
-        merge_LoRA(BASE_MODEL, geneartion_adapter, MODEL)
+        # logger.info(f'[+] Marge LoRA adapter {i} Generation Model from "{MODEL}"')
+        # merge_LoRA(BASE_MODEL, geneartion_adapter, MODEL)
 
-        logger.info(f'[+] Load {i} Generation Model from "{MODEL}"')
-        torch.cuda.empty_cache()
-        model = AutoModelForCausalLM.from_pretrained(
-            MODEL,
-            torch_dtype="auto",
-            low_cpu_mem_usage=True,
-        ).to(device=f"cuda", non_blocking=True)
+        # logger.info(f'[+] Load {i} Generation Model from "{MODEL}"')
+        # torch.cuda.empty_cache()
+        # model = AutoModelForCausalLM.from_pretrained(
+        #     MODEL,
+        #     torch_dtype="auto",
+        #     low_cpu_mem_usage=True,
+        # ).to(device=f"cuda", non_blocking=True)
         
-        model.eval()
+        # model.eval()
 
-        pipe = pipeline("text-generation", model=model, tokenizer=MODEL, device=0)
-        prompter = Prompter("kullm")
-        logger.info("[+] Load Dataset")
-        data_path = "resource/data/nikluge-sc-2023-test.jsonl"
-        test_data = load_dataset("json", data_files=data_path)
-        test_data = test_data["train"]
+        # pipe = pipeline("text-generation", model=model, tokenizer=MODEL, device=0)
+        # prompter = Prompter("kullm")
+        # logger.info("[+] Load Dataset")
+        # data_path = "resource/data/nikluge-sc-2023-test.jsonl"
+        # test_data = load_dataset("json", data_files=data_path)
+        # test_data = test_data["train"]
 
-        logger.info(f"[+] Start Generation {i}")
-        result_file_name = f"output/files/generate_results_{i}.jsonl"
-        special_token_id = 3  # <|sep|> 토큰
-        special_token = tokenizer.decode([special_token_id])
+        # logger.info(f"[+] Start Generation {i}")
+        result_file_name = f"outputs/files/generate_results_{i}.jsonl"
+        # special_token_id = 3  # <|sep|> 토큰
+        # special_token = tokenizer.decode([special_token_id])
 
-        all_output_data_points = []  # 결과를 저장할 리스트
+        # all_output_data_points = []  # 결과를 저장할 리스트
 
-        for i, data_point in enumerate(tqdm(test_data, desc="Processing")):  # tqdm을 사용하여 진행 상태를 표시
-            instruction = "문맥과 문법적 정확성 및 논리적 일관성에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 접속사를 신경써서 만들어주세요."
-            input_text = f"{data_point['input']['sentence1']} {special_token} {data_point['input']['sentence3']}"
+        # for i, data_point in enumerate(tqdm(test_data, desc="Processing")):  # tqdm을 사용하여 진행 상태를 표시
+        #     instruction = "문맥과 문법적 정확성 및 논리적 일관성에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 접속사를 신경써서 만들어주세요."
+        #     input_text = f"{data_point['input']['sentence1']} {special_token} {data_point['input']['sentence3']}"
 
-            result = infer(instruction=instruction, input_text=input_text)
+        #     result = infer(instruction, input_text, pipe, prompter)
 
-            output_data_point = {
-                "id": data_point["id"],
-                "input": data_point["input"],
-                "output": result
-            }
+        #     output_data_point = {
+        #         "id": data_point["id"],
+        #         "input": data_point["input"],
+        #         "output": result
+        #     }
 
-            all_output_data_points.append(output_data_point)  # 메모리에 결과 저장
+        #     all_output_data_points.append(output_data_point)  # 메모리에 결과 저장
 
-        with open(result_file_name, "a") as f:
-            for output_data_point in all_output_data_points:
-                f.write(json.dumps(output_data_point, ensure_ascii=False) + "\n")
+        # with open(result_file_name, "w") as f:
+        #     for output_data_point in all_output_data_points:
+        #         f.write(json.dumps(output_data_point, ensure_ascii=False) + "\n")
 
         logger.info(f"[+] Start Validation {i}")
         MODEL = args.validation_model_ckpt_path
         logger.info(f'[+] Marge LoRA adapter {i} Validation Model from "{MODEL}"')
-        merge_LoRA(BASE_MODEL, geneartion_adapter, MODEL)
+        # merge_LoRA(BASE_MODEL, geneartion_adapter, MODEL)
 
         logger.info(f'[+] Load {i} Validation Model from "{MODEL}"')
         torch.cuda.empty_cache()
@@ -132,27 +132,28 @@ def inference(args):
         pipe = pipeline("text-generation", model=model, tokenizer=MODEL, device=0)
         prompter = Prompter("kullm")
         logger.info("[+] Load Dataset")
-        test_data = load_dataset("json", data_files=output_data_point)
+        print(result_file_name)
+        test_data = load_dataset("json", data_files=result_file_name)
         test_data = test_data["train"]
-
-        result_file_name = f"output/files/validation_results_{i}.jsonl"
+       
+        result_file_name = f"output/files/validate_results_{i}.jsonl"
         all_output_data_points = []  # 결과를 저장할 리스트
 
         for i, data_point in enumerate(tqdm(test_data, desc="Processing")):  # tqdm을 사용하여 진행 상태를 표시
             instruction = "문맥과 문법적 정확성 및 논리적 일관성에 맞는 자연스러운 한 문장이 되도록 두 문장 이후에 나올 한 문장을 접속사를 신경써서 만들어주세요."
-            input_text = f"{data_point['input']['sentence1']}{data_point['input']['output']}"
+            input_text = f"{data_point['input']['sentence1']}{data_point['output']}"
 
-            result = infer(instruction=instruction, input_text=input_text)
+            result = infer(instruction, input_text, pipe, prompter)
 
             output_data_point = {
                 "id": data_point["id"],
-                "input": data_point["input"],
+                "input": data_point["input"]['sentence3'],
                 "output": result
             }
 
             all_output_data_points.append(output_data_point)  # 메모리에 결과 저장
 
-        with open(result_file_name, "a") as f:
+        with open(result_file_name, "w") as f:
             for output_data_point in all_output_data_points:
                 f.write(json.dumps(output_data_point, ensure_ascii=False) + "\n")
     
