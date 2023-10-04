@@ -2,10 +2,12 @@ import argparse
 import json
 import torch
 from datasets import load_dataset
-from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, GPTNeoXTokenizerFast
+from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline, GPTNeoXTokenizerFast, GPTNeoXForCausalLM
 import datetime
 from src.utils import Prompter, get_logger
 import warnings
+from peft import PeftModel
+import peft
 from tqdm import tqdm
 import os
 import logging
@@ -59,6 +61,7 @@ def inference(args):
     logger = get_logger("inference")
     BASE_MODEL = args.base_model
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
+    k = 3
 
     for i in tqdm(range(1, k+1), desc="Processing folds"):
         geneartion_adapter = args.adapter_model_ckpt_path + f"/fold_generation_{i}"
