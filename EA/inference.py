@@ -75,7 +75,7 @@ def infer(data):
 
 if __name__ == "__main__":
     # Load test data
-    with open("resource/data/splits/td_fold_6.jsonl", 'r') as f:    # "resource/data/nikluge-ea-2023-test.jsonl"
+    with open("resource/data/nikluge-ea-2023-test.jsonl", 'r') as f:    # "resource/data/nikluge-ea-2023-test.jsonl"
         test_data = [json.loads(line) for line in f]
 
     predictions = infer(test_data)

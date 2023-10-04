@@ -1,5 +1,5 @@
 import json
-from transformers import ElectraTokenizer, ElectraForSequenceClassification, ElectraConfig, AdamW
+from transformers import AutoTokenizer, AutoModelForSequenceClassification, AutoConfig, AdamW
 from torch.utils.data import DataLoader, TensorDataset
 import torch
 from sklearn.metrics import f1_score
@@ -11,7 +11,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--model_name', type=str, default="beomi/KcELECTRA-base-v2022")
+parser.add_argument('--model_name', type=str, default="nlpai-lab/kullm-polyglot-5.8b-v2")
 parser.add_argument('--seed' , type=int , default = 1, help='random seed (default: 1)')
 parser.add_argument('-bs', '--batch_size', type=int, default=64)
 parser.add_argument('--epochs', type=int, default=9999)
@@ -73,10 +73,12 @@ dev_labels = [[int(item['output'][label] == "True") for label in labels] for ite
 
 
 
-tokenizer = ElectraTokenizer.from_pretrained(args.model_name)
+tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
 def tokenize_data(texts):
-    return tokenizer([text[0] for text in texts], [text[1] for text in texts], padding=True, truncation=True, return_tensors="pt")
+    return tokenizer([text[0] for text in texts], padding=True, truncation=True, return_tensors="pt")
+
+# return tokenizer([text[0] for text in texts], [text[1] for text in texts], padding=True, truncation=True, return_tensors="pt")
 
 def create_dataset(tokenized_data, labels):
     input_ids = tokenized_data['input_ids']
@@ -115,10 +117,8 @@ if args.wandb:
 for idx, label in enumerate(labels):
     print(f"Training model for label: {label}")
     
-    config = ElectraConfig.from_pretrained(args.model_name)
-    config.hidden_dropout_prob = 0.2
-    config.num_labels = 2
-    model = ElectraForSequenceClassification.from_pretrained(args.model_name, config=config, ).to(device)
+    config = AutoConfig.from_pretrained(args.model_name)
+    model = AutoModelForSequenceClassification.from_pretrained(args.model_name, config=config, ).to(device)
 
     FULL_FINETUNING = True
     if FULL_FINETUNING:
