@@ -72,7 +72,7 @@ def generate_and_tokenize_prompt(data_point, tokenizer, prompter, train_on_input
     return tokenized_full_prompt
 
 def validate_and_tokenize_prompt(data_point, tokenizer, prompter, train_on_inputs):
-    instruction = "문맥과 문법적 정확성 및 논리적 일관성에 맞는 자연스러운 한 문장이 되도록 두 문장 이후에 나올 한 문장을 접속사를 신경써서 만들어주세요."
+    instruction = "두 문장 뒤에 나올 한 문장을 만들어주세요."
     combined_input = f"{data_point['input']['sentence1']}{data_point['output']}"
 
     full_prompt = prompter.generate_prompt(
@@ -161,6 +161,8 @@ def train_generation(args: Tuple):
     if torch.__version__ >= "2" and sys.platform != "win32":
         model = torch.compile(model)
 
+    trainer.train()
+
     model.save_pretrained(fold_output_dir)
 
 def train_validation(args: Tuple):
@@ -219,6 +221,8 @@ def train_validation(args: Tuple):
     if torch.__version__ >= "2" and sys.platform != "win32":
         model = torch.compile(model)
 
+    trainer.train()
+
     model.save_pretrained(fold_output_dir)
 
 def train(
@@ -227,7 +231,7 @@ def train(
     data_path: str = "resource/splits", # data_set 경로
     output_dir: str = "outputs/adapter", # output 경로
     # training hyperparams
-    batch_size: int = 8,
+    batch_size: int = 128,
     micro_batch_size: int = 2,
     num_epochs: int = 2,
     learning_rate: float = 3e-4,
@@ -345,12 +349,13 @@ def train(
         )
 
         # 병렬로 학습 실행
-        process1 = mp.Process(target=train_generation, args=(args,))
+        # process1 = mp.Process(target=train_generation, args=(args,))
         process2 = mp.Process(target=train_validation, args=(args,))
-        process1.start()
+        # process1.start()
         process2.start()
-        process1.join()
+        # process1.join()
         process2.join()
+        break
 
         print("\n If there's a warning about missing keys above, please disregard :)")
 
