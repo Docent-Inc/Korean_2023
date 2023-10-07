@@ -11,19 +11,18 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--model_name', type=str, default="nlpai-lab/kullm-polyglot-5.8b-v2")
+parser.add_argument('--model_name', type=str, default="EleutherAI/polyglot-ko-1.3b")
 parser.add_argument('--seed' , type=int , default = 1, help='random seed (default: 1)')
-parser.add_argument('-bs', '--batch_size', type=int, default=64)
+parser.add_argument('-bs', '--batch_size', type=int, default=8)
 parser.add_argument('--epochs', type=int, default=9999)
 parser.add_argument('--lr', type=float, default=1e-5)
 parser.add_argument('--early_stop_patient', type=int, default=5)
 parser.add_argument('--nsplit', type=int, default=9, help='n split K-Fold')
-parser.add_argument('--kfold', type=int, default=1, help='n split K-Fold')
+parser.add_argument('--kfold', type=int, default=6, help='n split K-Fold')
 parser.add_argument("--weight_decay", type=float, default=0.01, help="weight decay")
 parser.add_argument('--wandb', type=int, default=1, help='wandb on / off')
 
 args = parser.parse_args()
-
 
 def load_data(file_path):
     with open(file_path, 'r') as f:
@@ -36,10 +35,8 @@ def set_seed(seedNum):
     torch.cuda.manual_seed_all(seedNum) # if use multi-GPU
     torch.backends.cudnn.deterministic = True
     torch.backends.cudnn.benchmark = False
-    
 
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
 set_seed(args.seed)
 
 
@@ -58,9 +55,9 @@ else:
     print("error: invalid K-fold N")
     exit()
 
-
 # ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger", "sadness"]
 labels = ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger", "sadness"]
+labels = labels[4:]
 
 
 train_texts = [(item['input']['form'], item['input']['target']['form']) for item in train_data]
@@ -69,16 +66,12 @@ train_labels = [[int(item['output'][label] == "True") for label in labels] for i
 dev_texts = [(item['input']['form'], item['input']['target']['form']) for item in dev_data]
 dev_labels = [[int(item['output'][label] == "True") for label in labels] for item in dev_data]
 
-
-
-
-
 tokenizer = AutoTokenizer.from_pretrained(args.model_name)
 
 def tokenize_data(texts):
     return tokenizer([text[0] for text in texts], padding=True, truncation=True, return_tensors="pt")
 
-# return tokenizer([text[0] for text in texts], [text[1] for text in texts], padding=True, truncation=True, return_tensors="pt")
+# return tokenizer([text[0] for text 'in texts], [text[1] for text in texts], padding=True, truncation=True, return_tensors="pt")
 
 def create_dataset(tokenized_data, labels):
     input_ids = tokenized_data['input_ids']
@@ -118,7 +111,17 @@ for idx, label in enumerate(labels):
     print(f"Training model for label: {label}")
     
     config = AutoConfig.from_pretrained(args.model_name)
-    model = AutoModelForSequenceClassification.from_pretrained(args.model_name, config=config, ).to(device)
+    config.num_label = 2
+    model = AutoModelForSequenceClassification.from_pretrained(
+        args.model_name, 
+        cache_dir="/media/mydrive",
+        load_in_8bit=True,
+        torch_dtype="auto",
+        config=config,
+        )
+    tokenizer.pad_token = tokenizer.eos_token
+    model.config.pad_token_id = model.config.eos_token_id
+
 
     FULL_FINETUNING = True
     if FULL_FINETUNING:
@@ -166,8 +169,6 @@ for idx, label in enumerate(labels):
 
                 outputs = model(input_ids=batch_input_ids, attention_mask=batch_attention_mask)
                 preds = torch.argmax(outputs.logits, dim=1).cpu().numpy()
-                eval_loss = outputs.loss  # Compute eval loss for the batch
-                total_eval_loss += eval_loss.item()  # Update total eval loss
 
                 all_preds.extend(preds)
                 all_true.extend(current_batch_labels)
