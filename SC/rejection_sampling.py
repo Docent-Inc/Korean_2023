@@ -2,19 +2,22 @@ from transformers import AutoTokenizer, GPTNeoXForCausalLM
 import json
 import numpy as np
 from tqdm import tqdm
+import torch
 from sentence_transformers import SentenceTransformer
+from sklearn.metrics.pairwise import cosine_similarity
 import argparse
 parser = argparse.ArgumentParser(prog="rejection_sampling", description="rejection_sampling")
 parser.add_argument("--original-file-path", type=str, default="resource/data/nikluge-sc-2023-test.jsonl",help="original file path")
 parser.add_argument("--base_model", type=str, default="nlpai-lab/kullm-polyglot-5.8b-v2")
 parser.add_argument("--files-path", type=str, default="outputs/files",help="files path")
-parser.add_argument("--k", type=int, default=5,help="k fold size")
+parser.add_argument("--k", type=int, default=3,help="k fold size")
 
 
-# 여기다 함.
 def compute_similarity(sent1, sent2, model, tokenizer):
     vec1 = sentence_to_vector(sent1, model, tokenizer)
     vec2 = sentence_to_vector(sent2, model, tokenizer)
+    vec1 = vec1.reshape(1, -1)
+    vec2 = vec2.reshape(1, -1)
     return cosine_similarity(vec1, vec2)[0][0]
 
 def sentence_to_vector(sentence, model, tokenizer):
@@ -26,10 +29,6 @@ def sentence_to_vector(sentence, model, tokenizer):
 def inference(args):
     BASE_MODEL = args.base_model
     tokenizer = AutoTokenizer.from_pretrained(BASE_MODEL)
-    model = GPTNeoXForCausalLM.from_pretrained(
-        BASE_MODEL,
-        cache_dir="/media/mydrive",  
-    )
     
     # Load the model
     sbert = SentenceTransformer("bongsoo/klue-sbert-v1")
@@ -47,22 +46,24 @@ def inference(args):
         sentence3 = id_to_sentence3[data_id]
 
         for i in range(1, args.k+1):
-            file_path = args.files_path + f"/fold_validation_{i}.jsonl"
+            file_path = args.files_path + f"/validate_results_{i}.jsonl"
             with open(file_path, 'r') as f:
                 fold_data = [json.loads(line) for line in f]
                 fold_output = next(item for item in fold_data if item["id"] == data_id)["output"]
+                fold_s2 = next(item for item in fold_data if item["id"] == data_id)["input"]["sentence2"]
                 similarity = compute_similarity(sentence3, fold_output, sbert, tokenizer)
                 
                 if similarity > best_similarity:
                     best_similarity = similarity
                     best_output = fold_output
+                    best_s2 = fold_s2
 
         ensemble_results.append({
             "id": data_id,
             "input": data["input"],
-            "output": best_output
+            "output": best_s2
         })
-
+        
     with open(args.files_path + "/ensemble_results.jsonl", 'w') as f:
         for result in ensemble_results:
             f.write(json.dumps(result, ensure_ascii=False) + "\n")

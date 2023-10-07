@@ -72,7 +72,7 @@ def generate_and_tokenize_prompt(data_point, tokenizer, prompter, train_on_input
     return tokenized_full_prompt
 
 def validate_and_tokenize_prompt(data_point, tokenizer, prompter, train_on_inputs):
-    instruction = "두 문장 뒤에 나올 한 문장을 만들어주세요."
+    instruction = "두 문장 뒤에 이어질 자연스러운 한 문장을 만들어주세요."
     combined_input = f"{data_point['input']['sentence1']}{data_point['output']}"
 
     full_prompt = prompter.generate_prompt(
@@ -149,7 +149,6 @@ def train_generation(args: Tuple):
         data_collator=transformers.DataCollatorForSeq2Seq(
             tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
         ),
-        # callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
     )
     model.config.use_cache = False
 
@@ -209,7 +208,6 @@ def train_validation(args: Tuple):
         data_collator=transformers.DataCollatorForSeq2Seq(
             tokenizer, pad_to_multiple_of=8, return_tensors="pt", padding=True
         ),
-        # callbacks = [EarlyStoppingCallback(early_stopping_patience=3)]
     )
     model.config.use_cache = False
 
@@ -233,11 +231,11 @@ def train(
     # training hyperparams
     batch_size: int = 128,
     micro_batch_size: int = 2,
-    num_epochs: int = 2,
+    num_epochs: int = 8,
     learning_rate: float = 3e-4,
     cutoff_len: int = 256,
     # k-fold Rejection Sampling
-    k: int = 3,
+    k: int = 5,
     # lora hyperparams
     lora_r: int = 32,
     lora_alpha: int = 64,
@@ -305,17 +303,9 @@ def train(
     if len(wandb_log_model) > 0:
         os.environ["WANDB_LOG_MODEL"] = wandb_log_model
 
-    # model = GPTNeoXForCausalLM.from_pretrained(
-    #     base_model,
-    #     cache_dir="/media/mydrive", # 모델 저장 경로
-    #     load_in_8bit=True,
-    #     torch_dtype="auto",
-    #     device_map=device_map,
-    # )
-
     logger.info(f'[+] Load Tokenizer"')
     tokenizer = GPTNeoXTokenizerFast.from_pretrained(base_model)
-    # tokenizer.pad_token_id = 0  # unk. we want this to be different from the eos token
+    tokenizer.pad_token_id = 0  # unk. we want this to be different from the eos token
     tokenizer.padding_side = "left"  # Allow batched inference
 
     if not ddp and torch.cuda.device_count() > 1:
@@ -349,11 +339,11 @@ def train(
         )
 
         # 병렬로 학습 실행
-        # process1 = mp.Process(target=train_generation, args=(args,))
+        process1 = mp.Process(target=train_generation, args=(args,))
         process2 = mp.Process(target=train_validation, args=(args,))
-        # process1.start()
+        process1.start()
         process2.start()
-        # process1.join()
+        process1.join()
         process2.join()
         break
 
