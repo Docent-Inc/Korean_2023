@@ -11,7 +11,7 @@ import argparse
 
 parser = argparse.ArgumentParser()
 
-parser.add_argument('--model_name', type=str, default="EleutherAI/polyglot-ko-1.3b")
+parser.add_argument('--model_name', type=str, default="EleutherAI/polyglot-ko-5.8b")
 parser.add_argument('--seed' , type=int , default = 1, help='random seed (default: 1)')
 parser.add_argument('-bs', '--batch_size', type=int, default=8)
 parser.add_argument('--epochs', type=int, default=9999)

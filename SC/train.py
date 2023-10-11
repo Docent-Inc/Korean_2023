@@ -238,7 +238,7 @@ def train(
     k: int = 5,
     # lora hyperparams
     lora_r: int = 64,
-    lora_alpha: int = 64,
+    lora_alpha: int = 128,
     lora_dropout: float = 0.05,
     lora_target_modules: List[str] = ["query_key_value", "xxx"],
     # llm hyperparams
@@ -246,7 +246,7 @@ def train(
     add_eos_token: bool = False,
     group_by_length: bool = False,  # faster, but produces an odd training loss curve
     # wandb params
-    wandb_project: str = "docent-research/Korean-AI",
+    wandb_project: str = "Korean-AI",
     wandb_run_name: str = "",
     wandb_watch: str = "",  # options: false | gradients | all
     wandb_log_model: str = "",  # options: false | true

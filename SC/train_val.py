@@ -237,8 +237,8 @@ def train(
     # k-fold Rejection Sampling
     k: int = 5,
     # lora hyperparams
-    lora_r: int = 32,
-    lora_alpha: int = 64,
+    lora_r: int = 64,
+    lora_alpha: int = 128,
     lora_dropout: float = 0.05,
     lora_target_modules: List[str] = ["query_key_value", "xxx"],
     # llm hyperparams
