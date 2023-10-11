@@ -18,7 +18,7 @@ parser.add_argument('--epochs', type=int, default=9999)
 parser.add_argument('--lr', type=float, default=1e-5)
 parser.add_argument('--early_stop_patient', type=int, default=5)
 parser.add_argument('--nsplit', type=int, default=9, help='n split K-Fold')
-parser.add_argument('--kfold', type=int, default=1, help='n split K-Fold')
+parser.add_argument('--kfold', type=int, default=6, help='n split K-Fold')
 parser.add_argument("--weight_decay", type=float, default=0.01, help="weight decay")
 parser.add_argument('--wandb', type=int, default=1, help='wandb on / off')
 
@@ -157,7 +157,6 @@ for idx, label in enumerate(labels):
         model.eval()
         all_preds = []
         all_true = []
-        total_eval_loss = 0
 
         with torch.no_grad():
             for batch in dev_dataloader:
@@ -166,8 +165,6 @@ for idx, label in enumerate(labels):
 
                 outputs = model(input_ids=batch_input_ids, attention_mask=batch_attention_mask)
                 preds = torch.argmax(outputs.logits, dim=1).cpu().numpy()
-                eval_loss = outputs.loss  # Compute eval loss for the batch
-                total_eval_loss += eval_loss.item()  # Update total eval loss
 
                 all_preds.extend(preds)
                 all_true.extend(current_batch_labels)
@@ -175,7 +172,6 @@ for idx, label in enumerate(labels):
         f1 = f1_score(all_true, all_preds, average = "macro")
         
         print(f"Epoch {epoch + 1} | Eval F1 score: {f1}")
-        print(f"Epoch {epoch + 1} | Eval Loss: {total_eval_loss / len(dev_dataloader)}")  # Print average eval loss
 
         if f1 > best_f1:
             print("Best epoch ! saved the model")
