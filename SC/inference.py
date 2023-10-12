@@ -20,7 +20,7 @@ parser.add_argument("--geneartion-model-ckpt-path", type=str, default="outputs/g
 parser.add_argument("--validation-model-ckpt-path", type=str, default="outputs/validation",help="validation model path")
 parser.add_argument("--adapter-model-ckpt-path", type=str, default="outputs/adapter",help="adapter model path")
 parser.add_argument("--k", type=int, default=3)
-parser.add_argument("--batch_size", type=int, default=128)
+parser.add_argument("--batch_size", type=int, default=32)
 
 def infer_batch(instructions, input_texts, model, tokenizer, prompter, pipe):
     prompts = [prompter.generate_prompt(instruction, input_text) for instruction, input_text in zip(instructions, input_texts)]
@@ -149,6 +149,7 @@ def inference(args):
             for data_point, result in zip(batch_data, results):
                 result = result.split(".")[0]
                 output_data_point = {
+                    "id": data_point["id"],
                     "input": {
                         "sentence1": data_point["input"]['sentence1'],
                         "sentence2": data_point['output']
