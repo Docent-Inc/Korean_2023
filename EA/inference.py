@@ -7,19 +7,19 @@ from tqdm import tqdm
 BATCH_SIZE = 512
 labels = ["joy", "anticipation", "trust", "surprise", "disgust", "fear", "anger", "sadness"]
 tokenizer = ElectraTokenizer.from_pretrained("beomi/KcELECTRA-base-v2022")
-device = torch.device("cuda:2" if torch.cuda.is_available() else "cpu")
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 output_file_path = "predictions_5.jsonl"
 
 model_number = {
-    "joy" : 5,
-    "anticipation" : 5,
-    "trust" :5,
-    "surprise" :5,
-    "disgust" :5,
-    "fear" :5,
-    "anger" :5,
-    "sadness" :5
+    "joy" : 1,
+    "anticipation" : 1,
+    "trust" : 1,
+    "surprise" : 1,
+    "disgust" : 1,
+    "fear" : 1,
+    "anger" : 1,
+    "sadness" : 1
 }
 
 # Load trained models

@@ -103,6 +103,16 @@ def init_model_and_tokenizer(base_model):
         device_map="auto",
     )
     tokenizer = GPTNeoXTokenizerFast.from_pretrained(base_model)
+    # 패딩 토큰 설정
+    if tokenizer.pad_token is None:
+        if tokenizer.eos_token is not None:
+            tokenizer.pad_token = tokenizer.eos_token
+        else:
+            # '[PAD]' 토큰을 추가하고 이를 패딩 토큰으로 설정
+            tokenizer.add_special_tokens({'pad_token': '[PAD]'})
+
+    # 모델 임베딩 크기 조정
+    model.resize_token_embeddings(len(tokenizer))
     return model, tokenizer
 
 def train_generation(args: Tuple):
@@ -128,16 +138,16 @@ def train_generation(args: Tuple):
         args=transformers.TrainingArguments(
             per_device_train_batch_size=micro_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
-            warmup_steps=100,
+            warmup_steps=1,
             num_train_epochs=num_epochs,
             learning_rate=learning_rate,
             fp16=True,
             logging_steps=1,
             optim="adamw_torch",
-            evaluation_strategy="steps" if val_set_size > 0 else "no",
-            save_strategy="steps",
-            eval_steps=200 if val_set_size > 0 else None,
-            save_steps=200,
+            evaluation_strategy="epoch" if val_set_size > 0 else "no",
+            save_strategy="epoch",
+            eval_steps=1 if val_set_size > 0 else None,
+            save_steps=1,
             output_dir=output_dir,
             save_total_limit=3, 
             load_best_model_at_end=True if val_set_size > 0 else False,
@@ -225,14 +235,14 @@ def train_validation(args: Tuple):
 
 def train(
     # model/data params
-    base_model: str = "nlpai-lab/kullm-polyglot-5.8b-v2", # base mdoel 경로
+    base_model: str = "outputs/generation",# "nlpai-lab/kullm-polyglot-5.8b-v2", # base mdoel 경로
     data_path: str = "resource/splits", # data_set 경로
     output_dir: str = "outputs/adapter", # output 경로
     # training hyperparams
-    batch_size: int = 256,
-    micro_batch_size: int = 2,
-    num_epochs: int = 2,
-    learning_rate: float = 3e-4,
+    batch_size: int = 1024,
+    micro_batch_size: int = 64,
+    num_epochs: int = 3,
+    learning_rate: float = 1e-4,
     cutoff_len: int = 256,
     # k-fold Rejection Sampling
     k: int = 5,
@@ -345,6 +355,7 @@ def train(
         # process2.join()
 
         print("\n If there's a warning about missing keys above, please disregard :)")
+        break
 
 if __name__ == "__main__":
     fire.Fire(train)

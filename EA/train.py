@@ -18,12 +18,11 @@ parser.add_argument('--epochs', type=int, default=9999)
 parser.add_argument('--lr', type=float, default=1e-5)
 parser.add_argument('--early_stop_patient', type=int, default=5)
 parser.add_argument('--nsplit', type=int, default=9, help='n split K-Fold')
-parser.add_argument('--kfold', type=int, default=6, help='n split K-Fold')
+parser.add_argument('--kfold', type=int, default=1, help='n split K-Fold')
 parser.add_argument("--weight_decay", type=float, default=0.01, help="weight decay")
 parser.add_argument('--wandb', type=int, default=1, help='wandb on / off')
 
 args = parser.parse_args()
-
 
 def load_data(file_path):
     with open(file_path, 'r') as f:
@@ -47,12 +46,16 @@ set_seed(args.seed)
 if 1 <= args.kfold <= args.nsplit:
     # Determine the validation fold based on args.kfold
     dev_file = f"resource/data/splits/td_fold_{args.kfold}.jsonl"
+    raw_dev_data = load_data(dev_file)
+    print(f"Loaded raw dev data from {dev_file}, size: {len(raw_dev_data)}, first item: {raw_dev_data[0]}")
     dev_data = Dataset.from_json(dev_file)
+    print(f"Loaded dev dataset, size: {len(dev_data)}, first item: {dev_data[0]}")
 
     # Load the other folds for training
     train_files = [f"resource/data/splits/td_fold_{i}.jsonl" for i in range(1, args.nsplit + 1) if i != args.kfold]
     train_datasets = [Dataset.from_json(file) for file in train_files]
     train_data = concatenate_datasets(train_datasets)
+    print(f"Loaded train dataset, size: {len(train_data)}, first item: {train_data[0]}")
 
 else:
     print("error: invalid K-fold N")
@@ -68,10 +71,6 @@ train_labels = [[int(item['output'][label] == "True") for label in labels] for i
 
 dev_texts = [(item['input']['form'], item['input']['target']['form']) for item in dev_data]
 dev_labels = [[int(item['output'][label] == "True") for label in labels] for item in dev_data]
-
-
-
-
 
 tokenizer = ElectraTokenizer.from_pretrained(args.model_name)
 
@@ -109,8 +108,6 @@ if args.wandb:
     wandb_name = f'{args.kfold}/{args.nsplit}_{args.lr}_{args.batch_size}'
 
     wandb.init(entity="docent-research", project="EA", name = wandb_name, config = config)
-
-
 
 for idx, label in enumerate(labels):
     print(f"Training model for label: {label}")

@@ -128,7 +128,7 @@ def train_generation(args: Tuple):
         args=transformers.TrainingArguments(
             per_device_train_batch_size=micro_batch_size,
             gradient_accumulation_steps=gradient_accumulation_steps,
-            warmup_steps=100,
+            warmup_steps=1000,
             num_train_epochs=num_epochs,
             learning_rate=learning_rate,
             fp16=True,
@@ -136,10 +136,10 @@ def train_generation(args: Tuple):
             optim="adamw_torch",
             evaluation_strategy="steps" if val_set_size > 0 else "no",
             save_strategy="steps",
-            eval_steps=200 if val_set_size > 0 else None,
-            save_steps=200,
+            eval_epochs=1 if val_set_size > 0 else None,
+            save_epochs=1,
             output_dir=output_dir,
-            save_total_limit=3, 
+            save_total_limit=15, 
             load_best_model_at_end=True if val_set_size > 0 else False,
             ddp_find_unused_parameters=False if ddp else None,
             group_by_length=group_by_length,
@@ -193,10 +193,10 @@ def train_validation(args: Tuple):
             fp16=True,
             logging_steps=1,
             optim="adamw_torch",
-            evaluation_strategy="steps" if val_set_size > 0 else "no",
-            save_strategy="steps",
-            eval_steps=200 if val_set_size > 0 else None,
-            save_steps=200,
+            evaluation_strategy="epoch" if val_set_size > 0 else "no",
+            save_strategy="epoch",
+            eval_steps=1 if val_set_size > 0 else None,
+            save_steps=1,
             output_dir=output_dir,
             save_total_limit=3,
             load_best_model_at_end=True if val_set_size > 0 else False,
@@ -231,7 +231,7 @@ def train(
     # training hyperparams
     batch_size: int = 256,
     micro_batch_size: int = 2,
-    num_epochs: int = 2,
+    num_epochs: int = 20,
     learning_rate: float = 3e-4,
     cutoff_len: int = 256,
     # k-fold Rejection Sampling
@@ -338,7 +338,7 @@ def train(
 
         # 병렬로 학습 실행
         # process1 = mp.Process(target=train_generation, args=(args,))
-        process2 = mp.Process(target=train_validation, args=(args,))
+        process2 = mp.Process(target=train_generation, args=(args,))
         # process1.start()
         process2.start()
         # process1.join()
