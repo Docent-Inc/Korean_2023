@@ -3,6 +3,20 @@
 
 ## 감정 분석 과제 : EA
 
+### Task 설명
+감정 분석은 주어진 텍스트에 대한 화자의 감정 상태를 파악하는 과제이다. 이 과제는 텍스트에 드러나는 8가지 감정 유형을 분류하는 것을 목표로 한다. 감정 분석은 고객 서비스, 사회 네트워크 분석, 피드백 시스템, 인공지능 대화 시스템 등에 널리 활용된다.
+
+### BaseModel
+- beomi/KcELECTRA-base-v2022
+
+### 학습 전략
+- StratifiedKFold를 사용해 9개의 fold로 나누어 학습합니다. 
+- early stopping을 사용해 학습을 조기 종료하고, 가장 좋은 성능을 보인 모델을 저장합니다.
+- 학습률과 배치사이즈를 조절하며 최적의 loss를 만들 수 있도록 합니다.
+
+### 추론 전략
+- 9개의 fold로 나누어 학습한 모델을 사용해 추론합니다.
+- 각 fold의 추론 결과를 앙상블하여 최종 결과를 도출합니다.
 
 ## 이야기 완성 과제 : SC
 
@@ -12,15 +26,16 @@
 ### BaseModel
 - nlpai-lab/kullm-polyglot-5.8b-v2
 
-### 학습 방법
-- nlpai-lab/kullm-polyglot-5.8b-v2인 BaseModel을 4 batch_size로 2 epoch 동안 학습시킵니다.
-- "문맥과 문법적 정확성 및 논리적 일관성에 맞는 자연스러운 한 문장이 되도록 두 문장 사이에 들어갈 한 문장을 접속사를 신경써서 만들어주세요."라는 프롬프트와 함께 학습시킵니다.
-
 ### 학습 전략
 - LoRA (Low-Rank Adaptation of Large Language Models): LoRA는 PEFT(Parameter Effecient Fine-Tuning)의 기법 중 하나입니다. Pre-trained model의 weight는 고정한 채로, 몇 개의 dense(fc) layer만 학습시켜 downstream task의 연산량을 줄일 수 있습니다.
+- 8비트 양자화를 통해 한정된 GPU 메모리에서도 모델을 학습할 수 있도록 합니다.
 - 학습률과 배치사이즈를 조절하며 최적의 loss를 만들 수 있도록 합니다.
 
 ### 추론 전략
 - beam search의 계수를 최대한 늘려 더 정확한 문장을 생성하도록 유도합니다.
 - 학습과 같은 prompt를 사용해 학습효과를 최대한 사용하도록 유도합니다.
 
+### 이중 모델 학습 및 예측 적용
+- 모델 A: s1, s3을 사용하여 s2를 예측, 모델 B: s1, s2를 바탕으로 s3 예측.
+- 모델 A, B를 각각 학습시킨 후, 모델 A를 통해 s2를 예측하고, 모델 B를 통해 s3를 예측합니다.
+- 실제 s3와의 차이를 reward로 사용하여 모델 A를 학습시킵니다.
